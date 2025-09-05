@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react'
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export default function Home() {
-  const [swaps, setSwaps] = useState<unknown[]>([])
+  const [swaps, setSwaps] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
