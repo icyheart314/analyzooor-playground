@@ -42,6 +42,7 @@ export default function TokenInflowsPage() {
   const [topOutflows, setTopOutflows] = useState<TokenInflow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [selectedPeriod, setSelectedPeriod] = useState('1H')
 
   const getTokenPrice = async (mint: string, symbol: string): Promise<number> => {
     try {
@@ -85,9 +86,24 @@ export default function TokenInflowsPage() {
     }
   }
 
-  const calculateNetInflows = async (swapData: SwapData[]) => {
-    const oneHourAgo = Date.now() - (60 * 60 * 1000)
-    const recentSwaps = swapData.filter(swap => swap.timestamp > oneHourAgo)
+  const getTimeAgo = (period: string) => {
+    const now = Date.now()
+    switch (period) {
+      case '1H': return now - (1 * 60 * 60 * 1000)
+      case '2H': return now - (2 * 60 * 60 * 1000)
+      case '4H': return now - (4 * 60 * 60 * 1000)
+      case '12H': return now - (12 * 60 * 60 * 1000)
+      case '1D': return now - (24 * 60 * 60 * 1000)
+      case '3D': return now - (3 * 24 * 60 * 60 * 1000)
+      case '1W': return now - (7 * 24 * 60 * 60 * 1000)
+      case '1M': return now - (30 * 24 * 60 * 60 * 1000)
+      default: return now - (60 * 60 * 1000)
+    }
+  }
+
+  const calculateNetInflows = async (swapData: SwapData[], period: string) => {
+    const timeAgo = getTimeAgo(period)
+    const recentSwaps = swapData.filter(swap => swap.timestamp > timeAgo)
     
     const tokenFlows: { [mint: string]: { symbol: string, netInflow: number, inflow: number, outflow: number, swapCount: number } } = {}
     
@@ -141,17 +157,18 @@ export default function TokenInflowsPage() {
       .sort((a, b) => b.netInflowUSD - a.netInflowUSD)
       .slice(0, 10)
       
-    const outflows = await Promise.all(
+    // Calculate USD values for outflows first, then sort by USD
+    const outflowsWithUSD = await Promise.all(
       Object.entries(tokenFlows)
         .filter(([_, data]) => data.outflow > 0)
-        .sort((a, b) => b[1].outflow - a[1].outflow)
-        .slice(0, 10)
         .map(async ([mint, data]) => {
           const price = await getTokenPrice(mint, data.symbol)
           const outflowUSD = data.outflow * price
           return { 
             mint, 
             symbol: data.symbol,
+            outflow: data.outflow,
+            outflowUSD,
             netInflow: -data.outflow, // Show as negative for display
             netInflowUSD: -outflowUSD, // Show as negative for display
             price, 
@@ -159,6 +176,11 @@ export default function TokenInflowsPage() {
           }
         })
     )
+    
+    // Sort by USD outflow value (highest first) and take top 10
+    const outflows = outflowsWithUSD
+      .sort((a, b) => b.outflowUSD - a.outflowUSD)
+      .slice(0, 10)
     
     return { inflows, outflows }
   }
@@ -175,7 +197,7 @@ export default function TokenInflowsPage() {
         setSwaps(data)
         
         // Calculate net inflows and outflows
-        const { inflows, outflows } = await calculateNetInflows(data)
+        const { inflows, outflows } = await calculateNetInflows(data, selectedPeriod)
         setTopInflows(inflows)
         setTopOutflows(outflows)
         
@@ -187,11 +209,33 @@ export default function TokenInflowsPage() {
     }
 
     fetchSwaps()
-  }, [])
+  }, [selectedPeriod])
+
+  const timeOptions = ['1H', '2H', '4H', '12H', '1D', '3D', '1W', '1M']
 
   return (
     <div className="min-h-screen p-8">
-      <h1 className="text-3xl font-bold mb-8">Token Flow Rankings (Past 1 Hour)</h1>
+      <h1 className="text-3xl font-bold mb-4">Token Flow Rankings</h1>
+      
+      {/* Time Period Selector */}
+      <div className="mb-8">
+        <h2 className="text-lg font-medium mb-3">Time Period:</h2>
+        <div className="flex gap-2 flex-wrap">
+          {timeOptions.map(period => (
+            <button
+              key={period}
+              onClick={() => setSelectedPeriod(period)}
+              className={`px-4 py-2 rounded font-medium transition-colors ${
+                selectedPeriod === period 
+                  ? 'bg-blue-600 text-white' 
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              }`}
+            >
+              {period}
+            </button>
+          ))}
+        </div>
+      </div>
       
       {loading && <p>Loading...</p>}
       {error && <p className="text-red-500">Error: {error}</p>}
