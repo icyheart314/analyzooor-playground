@@ -32,8 +32,8 @@ export default function WhaleFilterPage() {
   const [filteredSwaps, setFilteredSwaps] = useState<FilteredSwap[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [maxHours, setMaxHours] = useState(24) // Max hours since pair created
-  const [maxMarketCap, setMaxMarketCap] = useState(10) // Max market cap in millions
+  const [timeFilter, setTimeFilter] = useState('<1D') // Time filter option
+  const [marketCapFilter, setMarketCapFilter] = useState('<1mil') // Market cap filter option
 
   const getMarketCapData = async (mint: string) => {
     try {
@@ -61,6 +61,37 @@ export default function WhaleFilterPage() {
     }
   }
 
+  const getTimeFilterValue = (filter: string) => {
+    const now = Date.now()
+    switch (filter) {
+      case '<1H': return now - (1 * 60 * 60 * 1000)
+      case '<4H': return now - (4 * 60 * 60 * 1000) 
+      case '<12H': return now - (12 * 60 * 60 * 1000)
+      case '<1D': return now - (24 * 60 * 60 * 1000)
+      case '<3D': return now - (3 * 24 * 60 * 60 * 1000)
+      case '<1W': return now - (7 * 24 * 60 * 60 * 1000)
+      case '>1W': return 0 // Show everything older than 1 week
+      case 'ALL': return 0 // Show all periods
+      default: return now - (24 * 60 * 60 * 1000)
+    }
+  }
+
+  const getMarketCapValue = (filter: string) => {
+    switch (filter) {
+      case '<100k': return 100000
+      case '<300k': return 300000
+      case '<500k': return 500000
+      case '<1mil': return 1000000
+      case '<3mil': return 3000000
+      case '<5mil': return 5000000
+      case '<10mil': return 10000000
+      case '<20mil': return 20000000
+      case '>20mil': return Infinity
+      case 'ALL': return Infinity
+      default: return 1000000
+    }
+  }
+
   const filterSwaps = async () => {
     try {
       setLoading(true)
@@ -74,8 +105,8 @@ export default function WhaleFilterPage() {
       
       const swaps = await response.json()
       const now = Date.now()
-      const maxAge = maxHours * 60 * 60 * 1000
-      const maxMarketCapValue = maxMarketCap * 1000000 // Convert to actual value
+      const maxAge = getTimeFilterValue(timeFilter)
+      const maxMarketCapValue = getMarketCapValue(marketCapFilter)
       
       const filtered: FilteredSwap[] = []
       
@@ -90,7 +121,10 @@ export default function WhaleFilterPage() {
             const pairAge = now - marketCapData.pairCreatedAt
             const marketCap = marketCapData.marketCap
             
-            if (pairAge <= maxAge && marketCap <= maxMarketCapValue && marketCap > 0) {
+            const timeCondition = timeFilter === 'ALL' ? true : timeFilter === '>1W' ? pairAge > (7 * 24 * 60 * 60 * 1000) : pairAge <= (now - maxAge)
+            const marketCapCondition = marketCapFilter === 'ALL' ? true : marketCapFilter === '>20mil' ? marketCap > 20000000 : marketCap <= maxMarketCapValue
+            
+            if (timeCondition && marketCapCondition && marketCap > 0) {
               swap.inputToken.marketCap = marketCap
               swap.inputToken.pairCreatedAt = marketCapData.pairCreatedAt
               usdValue += (swap.inputToken.amount || 0) * marketCapData.priceUsd
@@ -106,7 +140,10 @@ export default function WhaleFilterPage() {
             const pairAge = now - marketCapData.pairCreatedAt
             const marketCap = marketCapData.marketCap
             
-            if (pairAge <= maxAge && marketCap <= maxMarketCapValue && marketCap > 0) {
+            const timeCondition = timeFilter === 'ALL' ? true : timeFilter === '>1W' ? pairAge > (7 * 24 * 60 * 60 * 1000) : pairAge <= (now - maxAge)
+            const marketCapCondition = marketCapFilter === 'ALL' ? true : marketCapFilter === '>20mil' ? marketCap > 20000000 : marketCap <= maxMarketCapValue
+            
+            if (timeCondition && marketCapCondition && marketCap > 0) {
               swap.outputToken.marketCap = marketCap
               swap.outputToken.pairCreatedAt = marketCapData.pairCreatedAt
               usdValue += (swap.outputToken.amount || 0) * marketCapData.priceUsd
@@ -137,7 +174,7 @@ export default function WhaleFilterPage() {
 
   useEffect(() => {
     filterSwaps()
-  }, [maxHours, maxMarketCap])
+  }, [timeFilter, marketCapFilter])
 
   const formatMarketCap = (marketCap?: number) => {
     if (!marketCap) return 'Unknown'
@@ -167,39 +204,44 @@ export default function WhaleFilterPage() {
         <div className="grid grid-cols-2 gap-6">
           <div>
             <label className="block text-sm font-medium mb-2">
-              Max Hours Since Pair Created: {maxHours}h
+              Pair Created Time
             </label>
-            <input
-              type="range"
-              min="1"
-              max="168"
-              value={maxHours}
-              onChange={(e) => setMaxHours(parseInt(e.target.value))}
-              className="w-full"
-            />
-            <div className="flex justify-between text-xs text-gray-500 mt-1">
-              <span>1h</span>
-              <span>1 week</span>
-            </div>
+            <select
+              value={timeFilter}
+              onChange={(e) => setTimeFilter(e.target.value)}
+              className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="<1H">Less than 1 hour ago</option>
+              <option value="<4H">Less than 4 hours ago</option>
+              <option value="<12H">Less than 12 hours ago</option>
+              <option value="<1D">Less than 1 day ago</option>
+              <option value="<3D">Less than 3 days ago</option>
+              <option value="<1W">Less than 1 week ago</option>
+              <option value=">1W">More than 1 week ago</option>
+              <option value="ALL">All periods</option>
+            </select>
           </div>
           
           <div>
             <label className="block text-sm font-medium mb-2">
-              Max Market Cap: ${maxMarketCap}M
+              Market Cap
             </label>
-            <input
-              type="range"
-              min="0.1"
-              max="100"
-              step="0.1"
-              value={maxMarketCap}
-              onChange={(e) => setMaxMarketCap(parseFloat(e.target.value))}
-              className="w-full"
-            />
-            <div className="flex justify-between text-xs text-gray-500 mt-1">
-              <span>$100K</span>
-              <span>$100M</span>
-            </div>
+            <select
+              value={marketCapFilter}
+              onChange={(e) => setMarketCapFilter(e.target.value)}
+              className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="<100k">Less than $100K</option>
+              <option value="<300k">Less than $300K</option>
+              <option value="<500k">Less than $500K</option>
+              <option value="<1mil">Less than $1M</option>
+              <option value="<3mil">Less than $3M</option>
+              <option value="<5mil">Less than $5M</option>
+              <option value="<10mil">Less than $10M</option>
+              <option value="<20mil">Less than $20M</option>
+              <option value=">20mil">More than $20M</option>
+              <option value="ALL">All market caps</option>
+            </select>
           </div>
         </div>
       </div>
@@ -267,8 +309,8 @@ export default function WhaleFilterPage() {
           ) : (
             <div className="text-center py-8 text-gray-500">
               <p>No whale transactions found for tokens with:</p>
-              <p>• Created within {maxHours} hours</p>
-              <p>• Market cap below ${maxMarketCap}M</p>
+              <p>• Pair created: {timeFilter.replace('<', 'Less than ').replace('>', 'More than ').replace('H', ' hour').replace('D', ' day').replace('W', ' week')} ago</p>
+              <p>• Market cap: {marketCapFilter.replace('<', 'Less than $').replace('>', 'More than $').replace('k', 'K').replace('mil', 'M')}</p>
             </div>
           )}
         </div>
