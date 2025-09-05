@@ -107,6 +107,17 @@ export default function TokenInflowsPage() {
     const timeAgo = getTimeAgo(period)
     const recentSwaps = swapData.filter(swap => swap.timestamp > timeAgo)
     
+    console.log(`Period: ${period}, TimeAgo: ${new Date(timeAgo).toLocaleString()}, Total swaps: ${swapData.length}, Filtered swaps: ${recentSwaps.length}`)
+    
+    // Debug first few swap timestamps
+    if (swapData.length > 0) {
+      console.log('Sample swap timestamps:', swapData.slice(0, 3).map(s => ({ 
+        timestamp: s.timestamp, 
+        date: new Date(s.timestamp).toLocaleString(),
+        olderThanCutoff: s.timestamp <= timeAgo
+      })))
+    }
+    
     const tokenFlows: { [mint: string]: { symbol: string, netInflow: number, inflow: number, outflow: number, swapCount: number } } = {}
     
     recentSwaps.forEach(swap => {
@@ -227,16 +238,19 @@ export default function TokenInflowsPage() {
       </div>
       
       <div>
-        <h2>Time Period:</h2>
-        <div className="flex gap-2 flex-wrap">
+        <h3>Time Period:</h3>
+        <div>
           {timeOptions.map(period => (
-            <button
-              key={period}
-              onClick={() => setSelectedPeriod(period)}
-              style={selectedPeriod === period ? { fontWeight: 'bold' } : {}}
-            >
-              {selectedPeriod === period ? `[${period}]` : period}
-            </button>
+            <label key={period}>
+              <input
+                type="radio"
+                name="timeperiod"
+                value={period}
+                checked={selectedPeriod === period}
+                onChange={(e) => setSelectedPeriod(e.target.value)}
+              />
+              {period}
+            </label>
           ))}
         </div>
       </div>
@@ -246,61 +260,87 @@ export default function TokenInflowsPage() {
       
       {!loading && !error && (
         <div>
+          <div className="grid grid-cols-4 gap-4">
+            <div>
+              <div>BUY tokens</div>
+              <div>{topInflows.length}</div>
+            </div>
+            <div>
+              <div>SELL tokens</div>
+              <div>{topOutflows.length}</div>
+            </div>
+            <div>
+              <div>Total net inflow</div>
+              <div>${topInflows.reduce((sum, token) => sum + token.netInflowUSD, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+            </div>
+            <div>
+              <div>Total net outflow</div>
+              <div>${Math.abs(topOutflows.reduce((sum, token) => sum + token.netInflowUSD, 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+            </div>
+          </div>
+          
           <div>
-            <h2>Top 10 Token Inflows (Most Bought)</h2>
+          <div>
+            <h4>Top 10 Token Inflows (Most Bought)</h4>
             {topInflows.length > 0 ? (
-              <div>
-                {topInflows.map((token, index) => (
-                  <div key={token.mint} className="flex justify-between">
-                    <div>
-                      <span>#{index + 1} {token.symbol}</span>
-                      <div>{token.mint.slice(0, 8)}...</div>
-                    </div>
-                    <div>
-                      <div>
-                        +${token.netInflowUSD.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </div>
-                      <div>
-                        +{token.netInflow.toFixed(4)} {token.symbol}
-                      </div>
-                      <div>
-                        ${token.price.toFixed(4)}/token • {token.swapCount} swaps
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Token</th>
+                    <th>Token Address</th>
+                    <th>Swaps</th>
+                    <th>Net Inflow</th>
+                    <th>USD Volume</th>
+                    <th>Price</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {topInflows.map((token, index) => (
+                    <tr key={token.mint}>
+                      <td>{token.symbol}</td>
+                      <td>{token.mint.slice(0, 8)}...{token.mint.slice(-4)}</td>
+                      <td>{token.swapCount}</td>
+                      <td>+{token.netInflow.toFixed(4)}</td>
+                      <td>+${token.netInflowUSD.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                      <td>${token.price.toFixed(4)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             ) : (
-              <p>No token inflows in the past hour</p>
+              <p>No token inflows in the selected period</p>
             )}
           </div>
 
           <div>
-            <h2>Top 10 Token Outflows (Most Sold)</h2>
+            <h4>Top 10 Token Outflows (Most Sold)</h4>
             {topOutflows.length > 0 ? (
-              <div>
-                {topOutflows.map((token, index) => (
-                  <div key={token.mint} className="flex justify-between">
-                    <div>
-                      <span>#{index + 1} {token.symbol}</span>
-                      <div>{token.mint.slice(0, 8)}...</div>
-                    </div>
-                    <div>
-                      <div>
-                        ${Math.abs(token.netInflowUSD).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </div>
-                      <div>
-                        {Math.abs(token.netInflow).toFixed(4)} {token.symbol}
-                      </div>
-                      <div>
-                        ${token.price.toFixed(4)}/token • {token.swapCount} swaps
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Token</th>
+                    <th>Token Address</th>
+                    <th>Swaps</th>
+                    <th>Net Outflow</th>
+                    <th>USD Volume</th>
+                    <th>Price</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {topOutflows.map((token, index) => (
+                    <tr key={token.mint}>
+                      <td>{token.symbol}</td>
+                      <td>{token.mint.slice(0, 8)}...{token.mint.slice(-4)}</td>
+                      <td>{token.swapCount}</td>
+                      <td>-{Math.abs(token.netInflow).toFixed(4)}</td>
+                      <td>${Math.abs(token.netInflowUSD).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                      <td>${token.price.toFixed(4)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             ) : (
-              <p>No token outflows in the past hour</p>
+              <p>No token outflows in the selected period</p>
             )}
           </div>
         </div>

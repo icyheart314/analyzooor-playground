@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 
 interface FilteredSwap {
   id: string
@@ -33,9 +33,11 @@ interface FilteredSwap {
 export default function WhaleFilterPage() {
   const [filteredSwaps, setFilteredSwaps] = useState<FilteredSwap[]>([])
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [timeFilter, setTimeFilter] = useState('<1D') // Time filter option
-  const [marketCapFilter, setMarketCapFilter] = useState('<1mil') // Market cap filter option
+  const [timeFilter, setTimeFilter] = useState('ALL') // Time filter option
+  const [marketCapFilter, setMarketCapFilter] = useState('ALL') // Market cap filter option
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
 
   const getMarketCapData = async (mint: string) => {
     try {
@@ -94,9 +96,13 @@ export default function WhaleFilterPage() {
     }
   }
 
-  const filterSwaps = async () => {
+  const filterSwaps = useCallback(async (isAutoRefresh = false) => {
     try {
-      setLoading(true)
+      if (isAutoRefresh) {
+        setRefreshing(true)
+      } else {
+        setLoading(true)
+      }
       setError(null)
       
       // Fetch recent swaps from database
@@ -174,17 +180,28 @@ export default function WhaleFilterPage() {
       // Sort by USD value descending
       filtered.sort((a, b) => (b.usdValue || 0) - (a.usdValue || 0))
       setFilteredSwaps(filtered)
+      setLastUpdate(new Date())
       
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to filter swaps')
     } finally {
       setLoading(false)
+      setRefreshing(false)
     }
-  }
+  }, [timeFilter, marketCapFilter])
 
   useEffect(() => {
     filterSwaps()
-  }, [timeFilter, marketCapFilter])
+    
+    // Set up auto-refresh every 30 seconds
+    const interval = setInterval(() => {
+      console.log('Auto-refreshing whale filter...')
+      filterSwaps(true)
+    }, 30000)
+    
+    // Cleanup interval on component unmount or when filters change
+    return () => clearInterval(interval)
+  }, [timeFilter, marketCapFilter, filterSwaps])
 
   const formatMarketCap = (marketCap?: number) => {
     if (!marketCap) return 'Unknown'
@@ -222,7 +239,15 @@ export default function WhaleFilterPage() {
 
   return (
     <div className="max-w-7xl p-8">
-      <h1>Whale Filter - Fresh Low-Cap Gems</h1>
+      <div className="flex justify-between">
+        <h1>Whale Filter - Fresh Low-Cap Gems</h1>
+        <div>
+          {refreshing && <span>Updating...</span>}
+          {lastUpdate && !refreshing && (
+            <span>Last updated: {lastUpdate.toLocaleTimeString()}</span>
+          )}
+        </div>
+      </div>
       
       <div className="mb-8">
         <h2>Filter Settings</h2>
