@@ -39,6 +39,7 @@ interface SwapData {
 export default function TokenInflowsPage() {
   const [swaps, setSwaps] = useState<SwapData[]>([])
   const [topInflows, setTopInflows] = useState<TokenInflow[]>([])
+  const [topOutflows, setTopOutflows] = useState<TokenInflow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -132,10 +133,18 @@ export default function TokenInflowsPage() {
       })
     )
     
-    // Sort by USD net inflow and get top 10
-    return inflowArray
+    // Separate inflows and outflows
+    const inflows = inflowArray
+      .filter(token => token.netInflowUSD > 0)
       .sort((a, b) => b.netInflowUSD - a.netInflowUSD)
       .slice(0, 10)
+      
+    const outflows = inflowArray
+      .filter(token => token.netInflowUSD < 0)
+      .sort((a, b) => a.netInflowUSD - b.netInflowUSD) // Sort by most negative (biggest outflows)
+      .slice(0, 10)
+    
+    return { inflows, outflows }
   }
 
   useEffect(() => {
@@ -152,9 +161,10 @@ export default function TokenInflowsPage() {
         const data = await response.json()
         setSwaps(data)
         
-        // Calculate net inflows
-        const inflows = await calculateNetInflows(data)
+        // Calculate net inflows and outflows
+        const { inflows, outflows } = await calculateNetInflows(data)
         setTopInflows(inflows)
+        setTopOutflows(outflows)
         
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to fetch data')
@@ -168,29 +178,30 @@ export default function TokenInflowsPage() {
 
   return (
     <div className="min-h-screen p-8">
-      <h1 className="text-3xl font-bold mb-8">Top Token Net Inflows (Past 1 Hour)</h1>
+      <h1 className="text-3xl font-bold mb-8">Token Flow Rankings (Past 1 Hour)</h1>
       
       {loading && <p>Loading...</p>}
       {error && <p className="text-red-500">Error: {error}</p>}
       
       {!loading && !error && (
         <div className="space-y-8">
+          {/* Top 10 Inflows */}
           <div className="bg-white rounded-lg shadow-lg p-6">
-            <h2 className="text-xl font-semibold mb-4">Top 10 Token Inflows</h2>
+            <h2 className="text-xl font-semibold mb-4 text-green-600">🟢 Top 10 Token Inflows (Most Bought)</h2>
             {topInflows.length > 0 ? (
               <div className="space-y-3">
                 {topInflows.map((token, index) => (
-                  <div key={token.mint} className="flex justify-between items-center p-3 bg-gray-50 rounded">
+                  <div key={token.mint} className="flex justify-between items-center p-3 bg-green-50 rounded border-l-4 border-green-500">
                     <div>
                       <span className="font-medium">#{index + 1} {token.symbol}</span>
                       <div className="text-sm text-gray-500 font-mono">{token.mint.slice(0, 8)}...</div>
                     </div>
                     <div className="text-right">
-                      <div className={`font-bold text-lg ${token.netInflowUSD > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {token.netInflowUSD > 0 ? '+' : ''}${Math.abs(token.netInflowUSD).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      <div className="font-bold text-lg text-green-600">
+                        +${token.netInflowUSD.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </div>
                       <div className="text-sm text-gray-500">
-                        {token.netInflow > 0 ? '+' : ''}{token.netInflow.toFixed(4)} {token.symbol}
+                        +{token.netInflow.toFixed(4)} {token.symbol}
                       </div>
                       <div className="text-xs text-gray-400">
                         ${token.price.toFixed(4)}/token • {token.swapCount} swaps
@@ -200,14 +211,45 @@ export default function TokenInflowsPage() {
                 ))}
               </div>
             ) : (
-              <p className="text-gray-500">No recent swaps in the past hour</p>
+              <p className="text-gray-500">No token inflows in the past hour</p>
+            )}
+          </div>
+
+          {/* Top 10 Outflows */}
+          <div className="bg-white rounded-lg shadow-lg p-6">
+            <h2 className="text-xl font-semibold mb-4 text-red-600">🔴 Top 10 Token Outflows (Most Sold)</h2>
+            {topOutflows.length > 0 ? (
+              <div className="space-y-3">
+                {topOutflows.map((token, index) => (
+                  <div key={token.mint} className="flex justify-between items-center p-3 bg-red-50 rounded border-l-4 border-red-500">
+                    <div>
+                      <span className="font-medium">#{index + 1} {token.symbol}</span>
+                      <div className="text-sm text-gray-500 font-mono">{token.mint.slice(0, 8)}...</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-bold text-lg text-red-600">
+                        ${Math.abs(token.netInflowUSD).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </div>
+                      <div className="text-sm text-gray-500">
+                        {Math.abs(token.netInflow).toFixed(4)} {token.symbol}
+                      </div>
+                      <div className="text-xs text-gray-400">
+                        ${token.price.toFixed(4)}/token • {token.swapCount} swaps
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-gray-500">No token outflows in the past hour</p>
             )}
           </div>
           
           <div className="bg-gray-100 rounded-lg p-4">
             <h3 className="font-medium mb-2">Debug Info</h3>
             <p>Total swaps loaded: {swaps.length}</p>
-            <p>Tokens with activity: {topInflows.length}</p>
+            <p>Tokens with inflow activity: {topInflows.length}</p>
+            <p>Tokens with outflow activity: {topOutflows.length}</p>
           </div>
         </div>
       )}

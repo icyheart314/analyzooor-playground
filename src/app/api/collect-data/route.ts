@@ -57,11 +57,33 @@ export async function GET() {
       }
     }
     
+    // Cleanup: Delete data older than 1 month (run every 100th collection to avoid overload)
+    const shouldCleanup = Math.random() < 0.01 // 1% chance = ~once per 100 collections
+    let deletedCount = 0
+    
+    if (shouldCleanup) {
+      try {
+        const oneMonthAgo = new Date()
+        oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1)
+        
+        const { count } = await supabase
+          .from('swaps')
+          .delete()
+          .lt('created_at', oneMonthAgo.toISOString())
+        
+        deletedCount = count || 0
+        console.log(`Cleanup: Deleted ${deletedCount} old swap records`)
+      } catch (cleanupError) {
+        console.error('Cleanup error:', cleanupError)
+      }
+    }
+    
     return Response.json({ 
       success: true,
       totalSwaps: swaps.length,
       inserted: insertedCount,
       skipped: skippedCount,
+      deleted: deletedCount,
       timestamp: new Date().toISOString()
     })
     
