@@ -89,7 +89,7 @@ export default function TokenInflowsPage() {
     const oneHourAgo = Date.now() - (60 * 60 * 1000)
     const recentSwaps = swapData.filter(swap => swap.timestamp > oneHourAgo)
     
-    const tokenFlows: { [mint: string]: { symbol: string, netInflow: number, swapCount: number } } = {}
+    const tokenFlows: { [mint: string]: { symbol: string, netInflow: number, inflow: number, outflow: number, swapCount: number } } = {}
     
     recentSwaps.forEach(swap => {
       const { inputToken, outputToken } = swap
@@ -100,8 +100,9 @@ export default function TokenInflowsPage() {
         const symbol = outputToken.metadata?.symbol || 'Unknown'
         
         if (!tokenFlows[mint]) {
-          tokenFlows[mint] = { symbol, netInflow: 0, swapCount: 0 }
+          tokenFlows[mint] = { symbol, netInflow: 0, inflow: 0, outflow: 0, swapCount: 0 }
         }
+        tokenFlows[mint].inflow += outputToken.amount
         tokenFlows[mint].netInflow += outputToken.amount
         tokenFlows[mint].swapCount += 1
       }
@@ -112,8 +113,9 @@ export default function TokenInflowsPage() {
         const symbol = inputToken.metadata?.symbol || 'Unknown'
         
         if (!tokenFlows[mint]) {
-          tokenFlows[mint] = { symbol, netInflow: 0, swapCount: 0 }
+          tokenFlows[mint] = { symbol, netInflow: 0, inflow: 0, outflow: 0, swapCount: 0 }
         }
+        tokenFlows[mint].outflow += inputToken.amount
         tokenFlows[mint].netInflow -= inputToken.amount
         tokenFlows[mint].swapCount += 1
       }
@@ -139,10 +141,24 @@ export default function TokenInflowsPage() {
       .sort((a, b) => b.netInflowUSD - a.netInflowUSD)
       .slice(0, 10)
       
-    const outflows = inflowArray
-      .filter(token => token.netInflowUSD < 0)
-      .sort((a, b) => a.netInflowUSD - b.netInflowUSD) // Sort by most negative (biggest outflows)
-      .slice(0, 10)
+    const outflows = await Promise.all(
+      Object.entries(tokenFlows)
+        .filter(([_, data]) => data.outflow > 0)
+        .sort((a, b) => b[1].outflow - a[1].outflow)
+        .slice(0, 10)
+        .map(async ([mint, data]) => {
+          const price = await getTokenPrice(mint, data.symbol)
+          const outflowUSD = data.outflow * price
+          return { 
+            mint, 
+            symbol: data.symbol,
+            netInflow: -data.outflow, // Show as negative for display
+            netInflowUSD: -outflowUSD, // Show as negative for display
+            price, 
+            swapCount: data.swapCount
+          }
+        })
+    )
     
     return { inflows, outflows }
   }
@@ -243,13 +259,6 @@ export default function TokenInflowsPage() {
             ) : (
               <p className="text-gray-500">No token outflows in the past hour</p>
             )}
-          </div>
-          
-          <div className="bg-gray-100 rounded-lg p-4">
-            <h3 className="font-medium mb-2">Debug Info</h3>
-            <p>Total swaps loaded: {swaps.length}</p>
-            <p>Tokens with inflow activity: {topInflows.length}</p>
-            <p>Tokens with outflow activity: {topOutflows.length}</p>
           </div>
         </div>
       )}
