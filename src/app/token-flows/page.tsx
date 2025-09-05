@@ -41,8 +41,10 @@ export default function TokenInflowsPage() {
   const [topInflows, setTopInflows] = useState<TokenInflow[]>([])
   const [topOutflows, setTopOutflows] = useState<TokenInflow[]>([])
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [selectedPeriod, setSelectedPeriod] = useState('1H')
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
 
   const getTokenPrice = async (mint: string, symbol: string): Promise<number> => {
     try {
@@ -166,37 +168,64 @@ export default function TokenInflowsPage() {
     return { inflows, outflows }
   }
 
-  useEffect(() => {
-    const fetchSwaps = async () => {
-      try {
-        // Fetch from database (data is already being collected every minute by cron)
-        const response = await fetch('/api/database-swaps')
-        if (!response.ok) {
-          throw new Error('Failed to fetch swaps from database')
-        }
-        const data = await response.json()
-        setSwaps(data)
-        
-        // Calculate net inflows and outflows
-        const { inflows, outflows } = await calculateNetInflows(data, selectedPeriod)
-        setTopInflows(inflows)
-        setTopOutflows(outflows)
-        
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch data')
-      } finally {
-        setLoading(false)
+  const fetchSwaps = async (isAutoRefresh = false) => {
+    try {
+      if (isAutoRefresh) {
+        setRefreshing(true)
+      } else {
+        setLoading(true)
       }
+      setError(null)
+      
+      // Fetch from database (data is already being collected every minute by cron)
+      const response = await fetch('/api/database-swaps')
+      if (!response.ok) {
+        throw new Error('Failed to fetch swaps from database')
+      }
+      const data = await response.json()
+      setSwaps(data)
+      
+      // Calculate net inflows and outflows
+      const { inflows, outflows } = await calculateNetInflows(data, selectedPeriod)
+      setTopInflows(inflows)
+      setTopOutflows(outflows)
+      setLastUpdate(new Date())
+      
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch data')
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
     }
+  }
+
+  useEffect(() => {
 
     fetchSwaps()
+    
+    // Set up auto-refresh every 30 seconds
+    const interval = setInterval(() => {
+      console.log('Auto-refreshing token flows...')
+      fetchSwaps(true) // Pass true to indicate this is an auto-refresh
+    }, 30000)
+    
+    // Cleanup interval on component unmount or when selectedPeriod changes
+    return () => clearInterval(interval)
   }, [selectedPeriod])
 
   const timeOptions = ['1H', '2H', '4H', '12H', '1D', '3D', '1W', '1M']
 
   return (
     <div className="min-h-screen p-8">
-      <h1 className="text-3xl font-bold mb-4">Token Flow Rankings</h1>
+      <div className="flex justify-between items-center mb-4">
+        <h1 className="text-3xl font-bold">Token Flow Rankings</h1>
+        <div className="text-sm text-gray-500">
+          {refreshing && <span className="text-blue-600">🔄 Updating...</span>}
+          {lastUpdate && !refreshing && (
+            <span>Last updated: {lastUpdate.toLocaleTimeString()}</span>
+          )}
+        </div>
+      </div>
       
       {/* Time Period Selector */}
       <div className="mb-8">
