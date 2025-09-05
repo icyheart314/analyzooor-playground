@@ -166,10 +166,7 @@ export default function TokenInflowsPage() {
   useEffect(() => {
     const fetchSwaps = async () => {
       try {
-        // First, trigger data collection to get latest data
-        await fetch('/api/collect-data')
-        
-        // Then fetch from database
+        // Fetch from database (data is already being collected every minute by cron)
         const response = await fetch('/api/database-swaps')
         if (!response.ok) {
           throw new Error('Failed to fetch swaps from database')
