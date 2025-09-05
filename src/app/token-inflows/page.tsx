@@ -157,29 +157,10 @@ export default function TokenInflowsPage() {
       .sort((a, b) => b.netInflowUSD - a.netInflowUSD)
       .slice(0, 10)
       
-    // Calculate USD values for outflows first, then sort by USD
-    const outflowsWithUSD = await Promise.all(
-      Object.entries(tokenFlows)
-        .filter(([_, data]) => data.outflow > 0)
-        .map(async ([mint, data]) => {
-          const price = await getTokenPrice(mint, data.symbol)
-          const outflowUSD = data.outflow * price
-          return { 
-            mint, 
-            symbol: data.symbol,
-            outflow: data.outflow,
-            outflowUSD,
-            netInflow: -data.outflow, // Show as negative for display
-            netInflowUSD: -outflowUSD, // Show as negative for display
-            price, 
-            swapCount: data.swapCount
-          }
-        })
-    )
-    
-    // Sort by USD outflow value (highest first) and take top 10
-    const outflows = outflowsWithUSD
-      .sort((a, b) => b.outflowUSD - a.outflowUSD)
+    // Get tokens with negative net flow (more selling than buying)
+    const outflows = inflowArray
+      .filter(token => token.netInflowUSD < 0)
+      .sort((a, b) => a.netInflowUSD - b.netInflowUSD) // Sort by most negative (biggest net outflows)
       .slice(0, 10)
     
     return { inflows, outflows }
