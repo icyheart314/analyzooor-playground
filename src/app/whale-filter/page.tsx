@@ -17,6 +17,7 @@ interface FilteredSwap {
     symbol: string
     marketCap?: number
     pairCreatedAt?: number
+    priceUsd?: number
   }
   outputToken?: {
     mint: string
@@ -24,6 +25,7 @@ interface FilteredSwap {
     symbol: string
     marketCap?: number
     pairCreatedAt?: number
+    priceUsd?: number
   }
   usdValue?: number
 }
@@ -114,39 +116,47 @@ export default function WhaleFilterPage() {
         let passesFilter = false
         let usdValue = 0
         
-        // Check input token
+        // Check input token - always get market cap data
         if (swap.inputToken?.mint) {
           const marketCapData = await getMarketCapData(swap.inputToken.mint)
           if (marketCapData) {
             const pairAge = now - marketCapData.pairCreatedAt
             const marketCap = marketCapData.marketCap
             
+            // Always store market cap data
+            swap.inputToken.marketCap = marketCap
+            swap.inputToken.pairCreatedAt = marketCapData.pairCreatedAt
+            swap.inputToken.priceUsd = marketCapData.priceUsd
+            usdValue += (swap.inputToken.amount || 0) * marketCapData.priceUsd
+            
+            // Check if this token passes filter
             const timeCondition = timeFilter === 'ALL' ? true : timeFilter === '>1W' ? pairAge > (7 * 24 * 60 * 60 * 1000) : pairAge <= (now - maxAge)
             const marketCapCondition = marketCapFilter === 'ALL' ? true : marketCapFilter === '>20mil' ? marketCap > 20000000 : marketCap <= maxMarketCapValue
             
             if (timeCondition && marketCapCondition && marketCap > 0) {
-              swap.inputToken.marketCap = marketCap
-              swap.inputToken.pairCreatedAt = marketCapData.pairCreatedAt
-              usdValue += (swap.inputToken.amount || 0) * marketCapData.priceUsd
               passesFilter = true
             }
           }
         }
         
-        // Check output token
+        // Check output token - always get market cap data
         if (swap.outputToken?.mint) {
           const marketCapData = await getMarketCapData(swap.outputToken.mint)
           if (marketCapData) {
             const pairAge = now - marketCapData.pairCreatedAt
             const marketCap = marketCapData.marketCap
             
+            // Always store market cap data
+            swap.outputToken.marketCap = marketCap
+            swap.outputToken.pairCreatedAt = marketCapData.pairCreatedAt
+            swap.outputToken.priceUsd = marketCapData.priceUsd
+            usdValue += (swap.outputToken.amount || 0) * marketCapData.priceUsd
+            
+            // Check if this token passes filter
             const timeCondition = timeFilter === 'ALL' ? true : timeFilter === '>1W' ? pairAge > (7 * 24 * 60 * 60 * 1000) : pairAge <= (now - maxAge)
             const marketCapCondition = marketCapFilter === 'ALL' ? true : marketCapFilter === '>20mil' ? marketCap > 20000000 : marketCap <= maxMarketCapValue
             
             if (timeCondition && marketCapCondition && marketCap > 0) {
-              swap.outputToken.marketCap = marketCap
-              swap.outputToken.pairCreatedAt = marketCapData.pairCreatedAt
-              usdValue += (swap.outputToken.amount || 0) * marketCapData.priceUsd
               passesFilter = true
             }
           }
@@ -191,6 +201,23 @@ export default function WhaleFilterPage() {
       return `${Math.floor(hours * 60)}m ago`
     }
     return `${Math.floor(hours)}h ago`
+  }
+
+  const copyToClipboard = async (text: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(text)
+      alert(`${label} copied to clipboard!`)
+    } catch (err) {
+      console.error('Failed to copy:', err)
+      // Fallback for older browsers
+      const textArea = document.createElement('textarea')
+      textArea.value = text
+      document.body.appendChild(textArea)
+      textArea.select()
+      document.execCommand('copy')
+      document.body.removeChild(textArea)
+      alert(`${label} copied to clipboard!`)
+    }
   }
 
   return (
@@ -256,52 +283,169 @@ export default function WhaleFilterPage() {
           </p>
           
           {filteredSwaps.length > 0 ? (
-            <div className="space-y-4">
+            <div className="space-y-6">
               {filteredSwaps.map((swap, index) => (
-                <div key={swap.id} className="bg-white rounded-lg shadow p-6 border-l-4 border-blue-500">
-                  <div className="flex justify-between items-start mb-3">
+                <div key={swap.id} className="bg-white rounded-lg shadow-lg p-6 border-l-4 border-blue-500">
+                  {/* Header */}
+                  <div className="flex justify-between items-start mb-4">
                     <div>
-                      <h3 className="font-semibold text-lg">#{index + 1} Whale Transaction</h3>
-                      <p className="text-sm text-gray-500">
+                      <h3 className="font-bold text-xl text-blue-600">#{index + 1} Whale Transaction</h3>
+                      <p className="text-sm text-gray-500 mt-1">
                         {new Date(swap.timestamp).toLocaleString()} • {swap.source}
                       </p>
                     </div>
                     {swap.usdValue && (
                       <div className="text-right">
-                        <div className="text-xl font-bold text-green-600">
+                        <div className="text-2xl font-bold text-green-600">
                           ${swap.usdValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </div>
+                        <div className="text-sm text-gray-500">Total Volume</div>
                       </div>
                     )}
                   </div>
-                  
-                  <div className="grid grid-cols-2 gap-4 mb-4">
-                    {swap.inputToken?.marketCap && (
-                      <div className="bg-red-50 p-3 rounded border-l-2 border-red-400">
-                        <div className="text-sm font-medium text-red-700">SOLD</div>
-                        <div className="font-semibold">{swap.inputToken.symbol}</div>
-                        <div className="text-sm">MC: {formatMarketCap(swap.inputToken.marketCap)}</div>
-                        <div className="text-xs text-gray-500">
-                          Pair: {formatTimeAgo(swap.inputToken.pairCreatedAt)}
+
+                  {/* Token Details */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    {/* Input Token (SOLD) */}
+                    {swap.inputToken && (
+                      <div className="bg-red-50 p-4 rounded-lg border-l-4 border-red-500">
+                        <div className="flex justify-between items-center mb-3">
+                          <div className="text-lg font-bold text-red-700">🔴 SOLD</div>
+                          <div className="text-sm font-medium text-red-600">
+                            {swap.inputToken.amount?.toLocaleString()} {swap.inputToken.symbol}
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <div className="flex justify-between">
+                            <span className="text-sm text-gray-600">Token:</span>
+                            <span className="font-semibold">{swap.inputToken.symbol || 'Unknown'}</span>
+                          </div>
+                          
+                          {swap.inputToken.marketCap && (
+                            <div className="flex justify-between">
+                              <span className="text-sm text-gray-600">Market Cap:</span>
+                              <span className="font-semibold">{formatMarketCap(swap.inputToken.marketCap)}</span>
+                            </div>
+                          )}
+                          
+                          {swap.inputToken.pairCreatedAt && (
+                            <div className="flex justify-between">
+                              <span className="text-sm text-gray-600">Pair Age:</span>
+                              <span className="font-semibold">{formatTimeAgo(swap.inputToken.pairCreatedAt)}</span>
+                            </div>
+                          )}
+                          
+                          {swap.inputToken.priceUsd !== undefined && (
+                            <div className="flex justify-between">
+                              <span className="text-sm text-gray-600">Price:</span>
+                              <span className="font-semibold">
+                                {swap.inputToken.priceUsd < 0.01 
+                                  ? `$${swap.inputToken.priceUsd.toFixed(6)}` 
+                                  : `$${swap.inputToken.priceUsd.toFixed(4)}`}
+                              </span>
+                            </div>
+                          )}
+                          
+                          <div className="mt-3">
+                            <button
+                              onClick={() => copyToClipboard(swap.inputToken?.mint || '', 'Contract Address')}
+                              className="text-xs bg-red-100 hover:bg-red-200 px-2 py-1 rounded font-mono cursor-pointer"
+                              title="Click to copy contract address"
+                            >
+                              CA: {swap.inputToken.mint?.slice(0, 8)}...{swap.inputToken.mint?.slice(-4)}
+                            </button>
+                          </div>
                         </div>
                       </div>
                     )}
+
+                    {/* Output Token (BOUGHT) */}
+                    {swap.outputToken && (
+                      <div className="bg-green-50 p-4 rounded-lg border-l-4 border-green-500">
+                        <div className="flex justify-between items-center mb-3">
+                          <div className="text-lg font-bold text-green-700">🟢 BOUGHT</div>
+                          <div className="text-sm font-medium text-green-600">
+                            {swap.outputToken.amount?.toLocaleString()} {swap.outputToken.symbol}
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <div className="flex justify-between">
+                            <span className="text-sm text-gray-600">Token:</span>
+                            <span className="font-semibold">{swap.outputToken.symbol || 'Unknown'}</span>
+                          </div>
+                          
+                          {swap.outputToken.marketCap && (
+                            <div className="flex justify-between">
+                              <span className="text-sm text-gray-600">Market Cap:</span>
+                              <span className="font-semibold">{formatMarketCap(swap.outputToken.marketCap)}</span>
+                            </div>
+                          )}
+                          
+                          {swap.outputToken.pairCreatedAt && (
+                            <div className="flex justify-between">
+                              <span className="text-sm text-gray-600">Pair Age:</span>
+                              <span className="font-semibold">{formatTimeAgo(swap.outputToken.pairCreatedAt)}</span>
+                            </div>
+                          )}
+                          
+                          {swap.outputToken.priceUsd !== undefined && (
+                            <div className="flex justify-between">
+                              <span className="text-sm text-gray-600">Price:</span>
+                              <span className="font-semibold">
+                                {swap.outputToken.priceUsd < 0.01 
+                                  ? `$${swap.outputToken.priceUsd.toFixed(6)}` 
+                                  : `$${swap.outputToken.priceUsd.toFixed(4)}`}
+                              </span>
+                            </div>
+                          )}
+                          
+                          <div className="mt-3">
+                            <button
+                              onClick={() => copyToClipboard(swap.outputToken?.mint || '', 'Contract Address')}
+                              className="text-xs bg-green-100 hover:bg-green-200 px-2 py-1 rounded font-mono cursor-pointer"
+                              title="Click to copy contract address"
+                            >
+                              CA: {swap.outputToken.mint?.slice(0, 8)}...{swap.outputToken.mint?.slice(-4)}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Transaction Details */}
+                  <div className="border-t pt-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+                      <div>
+                        <span className="text-sm text-gray-600">Signature:</span>
+                        <button
+                          onClick={() => copyToClipboard(swap.signature, 'Transaction Signature')}
+                          className="ml-2 text-xs bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded font-mono cursor-pointer"
+                          title="Click to copy signature"
+                        >
+                          {swap.signature.slice(0, 12)}...{swap.signature.slice(-4)}
+                        </button>
+                      </div>
+                      
+                      <div>
+                        <span className="text-sm text-gray-600">Whale:</span>
+                        <button
+                          onClick={() => copyToClipboard(swap.feePayer, 'Whale Address')}
+                          className="ml-2 text-xs bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded font-mono cursor-pointer"
+                          title="Click to copy whale address"
+                        >
+                          {swap.feePayer.slice(0, 8)}...{swap.feePayer.slice(-4)}
+                        </button>
+                      </div>
+                    </div>
                     
-                    {swap.outputToken?.marketCap && (
-                      <div className="bg-green-50 p-3 rounded border-l-2 border-green-400">
-                        <div className="text-sm font-medium text-green-700">BOUGHT</div>
-                        <div className="font-semibold">{swap.outputToken.symbol}</div>
-                        <div className="text-sm">MC: {formatMarketCap(swap.outputToken.marketCap)}</div>
-                        <div className="text-xs text-gray-500">
-                          Pair: {formatTimeAgo(swap.outputToken.pairCreatedAt)}
-                        </div>
+                    {swap.description && (
+                      <div className="text-sm text-gray-700 bg-gray-50 p-3 rounded">
+                        <strong>Description:</strong> {swap.description}
                       </div>
                     )}
-                  </div>
-                  
-                  <div className="text-sm text-gray-600">
-                    <p>{swap.description}</p>
-                    <p className="font-mono text-xs mt-2">{swap.signature.slice(0, 20)}...</p>
                   </div>
                 </div>
               ))}
