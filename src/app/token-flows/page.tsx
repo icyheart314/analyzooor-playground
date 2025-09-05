@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 
 interface TokenInflow {
   symbol: string
@@ -168,7 +168,7 @@ export default function TokenInflowsPage() {
     return { inflows, outflows }
   }
 
-  const fetchSwaps = async (isAutoRefresh = false) => {
+  const fetchSwaps = useCallback(async (isAutoRefresh = false) => {
     try {
       if (isAutoRefresh) {
         setRefreshing(true)
@@ -197,80 +197,73 @@ export default function TokenInflowsPage() {
       setLoading(false)
       setRefreshing(false)
     }
-  }
+  }, [selectedPeriod])
 
   useEffect(() => {
-
     fetchSwaps()
     
     // Set up auto-refresh every 30 seconds
     const interval = setInterval(() => {
       console.log('Auto-refreshing token flows...')
-      fetchSwaps(true) // Pass true to indicate this is an auto-refresh
+      fetchSwaps(true)
     }, 30000)
     
     // Cleanup interval on component unmount or when selectedPeriod changes
     return () => clearInterval(interval)
-  }, [selectedPeriod])
+  }, [selectedPeriod, fetchSwaps])
 
   const timeOptions = ['1H', '2H', '4H', '12H', '1D', '3D', '1W', '1M']
 
   return (
-    <div className="min-h-screen p-8">
-      <div className="flex justify-between items-center mb-4">
-        <h1 className="text-3xl font-bold">Token Flow Rankings</h1>
-        <div className="text-sm text-gray-500">
-          {refreshing && <span className="text-blue-600">🔄 Updating...</span>}
+    <div className="max-w-7xl p-8">
+      <div className="flex justify-between">
+        <h1>Token Flow Rankings</h1>
+        <div>
+          {refreshing && <span>Updating...</span>}
           {lastUpdate && !refreshing && (
             <span>Last updated: {lastUpdate.toLocaleTimeString()}</span>
           )}
         </div>
       </div>
       
-      {/* Time Period Selector */}
-      <div className="mb-8">
-        <h2 className="text-lg font-medium mb-3">Time Period:</h2>
+      <div>
+        <h2>Time Period:</h2>
         <div className="flex gap-2 flex-wrap">
           {timeOptions.map(period => (
             <button
               key={period}
               onClick={() => setSelectedPeriod(period)}
-              className={`px-4 py-2 rounded font-medium transition-colors ${
-                selectedPeriod === period 
-                  ? 'bg-blue-600 text-white' 
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-              }`}
+              style={selectedPeriod === period ? { fontWeight: 'bold' } : {}}
             >
-              {period}
+              {selectedPeriod === period ? `[${period}]` : period}
             </button>
           ))}
         </div>
       </div>
       
       {loading && <p>Loading...</p>}
-      {error && <p className="text-red-500">Error: {error}</p>}
+      {error && <p>Error: {error}</p>}
       
       {!loading && !error && (
-        <div className="space-y-8">
-          {/* Top 10 Inflows */}
-          <div className="bg-white rounded-lg shadow-lg p-6">
-            <h2 className="text-xl font-semibold mb-4 text-green-600">🟢 Top 10 Token Inflows (Most Bought)</h2>
+        <div>
+          <div>
+            <h2>Top 10 Token Inflows (Most Bought)</h2>
             {topInflows.length > 0 ? (
-              <div className="space-y-3">
+              <div>
                 {topInflows.map((token, index) => (
-                  <div key={token.mint} className="flex justify-between items-center p-3 bg-green-50 rounded border-l-4 border-green-500">
+                  <div key={token.mint} className="flex justify-between">
                     <div>
-                      <span className="font-medium">#{index + 1} {token.symbol}</span>
-                      <div className="text-sm text-gray-500 font-mono">{token.mint.slice(0, 8)}...</div>
+                      <span>#{index + 1} {token.symbol}</span>
+                      <div>{token.mint.slice(0, 8)}...</div>
                     </div>
-                    <div className="text-right">
-                      <div className="font-bold text-lg text-green-600">
+                    <div>
+                      <div>
                         +${token.netInflowUSD.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </div>
-                      <div className="text-sm text-gray-500">
+                      <div>
                         +{token.netInflow.toFixed(4)} {token.symbol}
                       </div>
-                      <div className="text-xs text-gray-400">
+                      <div>
                         ${token.price.toFixed(4)}/token • {token.swapCount} swaps
                       </div>
                     </div>
@@ -278,29 +271,28 @@ export default function TokenInflowsPage() {
                 ))}
               </div>
             ) : (
-              <p className="text-gray-500">No token inflows in the past hour</p>
+              <p>No token inflows in the past hour</p>
             )}
           </div>
 
-          {/* Top 10 Outflows */}
-          <div className="bg-white rounded-lg shadow-lg p-6">
-            <h2 className="text-xl font-semibold mb-4 text-red-600">🔴 Top 10 Token Outflows (Most Sold)</h2>
+          <div>
+            <h2>Top 10 Token Outflows (Most Sold)</h2>
             {topOutflows.length > 0 ? (
-              <div className="space-y-3">
+              <div>
                 {topOutflows.map((token, index) => (
-                  <div key={token.mint} className="flex justify-between items-center p-3 bg-red-50 rounded border-l-4 border-red-500">
+                  <div key={token.mint} className="flex justify-between">
                     <div>
-                      <span className="font-medium">#{index + 1} {token.symbol}</span>
-                      <div className="text-sm text-gray-500 font-mono">{token.mint.slice(0, 8)}...</div>
+                      <span>#{index + 1} {token.symbol}</span>
+                      <div>{token.mint.slice(0, 8)}...</div>
                     </div>
-                    <div className="text-right">
-                      <div className="font-bold text-lg text-red-600">
+                    <div>
+                      <div>
                         ${Math.abs(token.netInflowUSD).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </div>
-                      <div className="text-sm text-gray-500">
+                      <div>
                         {Math.abs(token.netInflow).toFixed(4)} {token.symbol}
                       </div>
-                      <div className="text-xs text-gray-400">
+                      <div>
                         ${token.price.toFixed(4)}/token • {token.swapCount} swaps
                       </div>
                     </div>
@@ -308,7 +300,7 @@ export default function TokenInflowsPage() {
                 ))}
               </div>
             ) : (
-              <p className="text-gray-500">No token outflows in the past hour</p>
+              <p>No token outflows in the past hour</p>
             )}
           </div>
         </div>

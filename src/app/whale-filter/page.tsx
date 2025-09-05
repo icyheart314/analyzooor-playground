@@ -221,22 +221,20 @@ export default function WhaleFilterPage() {
   }
 
   return (
-    <div className="min-h-screen p-8">
-      <h1 className="text-3xl font-bold mb-4">🐋 Whale Filter - Fresh Low-Cap Gems</h1>
+    <div className="max-w-7xl p-8">
+      <h1>Whale Filter - Fresh Low-Cap Gems</h1>
       
-      {/* Filter Controls */}
-      <div className="mb-8 bg-white rounded-lg shadow-lg p-6">
-        <h2 className="text-xl font-semibold mb-4">Filter Settings</h2>
+      <div className="mb-8">
+        <h2>Filter Settings</h2>
         
         <div className="grid grid-cols-2 gap-6">
           <div>
-            <label className="block text-sm font-medium mb-2">
+            <label>
               Pair Created Time
             </label>
             <select
               value={timeFilter}
               onChange={(e) => setTimeFilter(e.target.value)}
-              className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
               <option value="<1H">Less than 1 hour ago</option>
               <option value="<4H">Less than 4 hours ago</option>
@@ -250,13 +248,12 @@ export default function WhaleFilterPage() {
           </div>
           
           <div>
-            <label className="block text-sm font-medium mb-2">
+            <label>
               Market Cap
             </label>
             <select
               value={marketCapFilter}
               onChange={(e) => setMarketCapFilter(e.target.value)}
-              className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
               <option value="<100k">Less than $100K</option>
               <option value="<300k">Less than $300K</option>
@@ -273,73 +270,70 @@ export default function WhaleFilterPage() {
         </div>
       </div>
       
-      {loading && <p>🔍 Filtering whale transactions on fresh gems...</p>}
-      {error && <p className="text-red-500">Error: {error}</p>}
+      {loading && <p>Filtering whale transactions on fresh gems...</p>}
+      {error && <p>Error: {error}</p>}
       
       {!loading && !error && (
-        <div className="space-y-4">
-          <p className="text-lg font-medium">
+        <div>
+          <p>
             Found {filteredSwaps.length} whale transactions on fresh low-cap tokens
           </p>
           
           {filteredSwaps.length > 0 ? (
-            <div className="space-y-6">
+            <div>
               {filteredSwaps.map((swap, index) => (
-                <div key={swap.id} className="bg-white rounded-lg shadow-lg p-6 border-l-4 border-blue-500">
-                  {/* Header */}
-                  <div className="flex justify-between items-start mb-4">
+                <div key={swap.id}>
+                  <div className="flex justify-between">
                     <div>
-                      <h3 className="font-bold text-xl text-blue-600">#{index + 1} Whale Transaction</h3>
-                      <p className="text-sm text-gray-500 mt-1">
+                      <h3>#{index + 1} Whale Transaction</h3>
+                      <p>
                         {new Date(swap.timestamp).toLocaleString()} • {swap.source}
                       </p>
                     </div>
                     {swap.usdValue && (
-                      <div className="text-right">
-                        <div className="text-2xl font-bold text-green-600">
+                      <div>
+                        <div>
                           ${swap.usdValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </div>
-                        <div className="text-sm text-gray-500">Total Volume</div>
+                        <div>Total Volume</div>
                       </div>
                     )}
                   </div>
 
-                  {/* Token Details */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                    {/* Input Token (SOLD) */}
+                  <div className="grid grid-cols-2 gap-6">
                     {swap.inputToken && (
-                      <div className="bg-red-50 p-4 rounded-lg border-l-4 border-red-500">
-                        <div className="flex justify-between items-center mb-3">
-                          <div className="text-lg font-bold text-red-700">🔴 SOLD</div>
-                          <div className="text-sm font-medium text-red-600">
+                      <div>
+                        <div className="flex justify-between">
+                          <div>SOLD</div>
+                          <div>
                             {swap.inputToken.amount?.toLocaleString()} {swap.inputToken.symbol}
                           </div>
                         </div>
                         
-                        <div className="space-y-2">
+                        <div>
                           <div className="flex justify-between">
-                            <span className="text-sm text-gray-600">Token:</span>
-                            <span className="font-semibold">{swap.inputToken.symbol || 'Unknown'}</span>
+                            <span>Token:</span>
+                            <span>{swap.inputToken.symbol || 'Unknown'}</span>
                           </div>
                           
                           {swap.inputToken.marketCap && (
                             <div className="flex justify-between">
-                              <span className="text-sm text-gray-600">Market Cap:</span>
-                              <span className="font-semibold">{formatMarketCap(swap.inputToken.marketCap)}</span>
+                              <span>Market Cap:</span>
+                              <span>{formatMarketCap(swap.inputToken.marketCap)}</span>
                             </div>
                           )}
                           
                           {swap.inputToken.pairCreatedAt && (
                             <div className="flex justify-between">
-                              <span className="text-sm text-gray-600">Pair Age:</span>
-                              <span className="font-semibold">{formatTimeAgo(swap.inputToken.pairCreatedAt)}</span>
+                              <span>Pair Age:</span>
+                              <span>{formatTimeAgo(swap.inputToken.pairCreatedAt)}</span>
                             </div>
                           )}
                           
                           {swap.inputToken.priceUsd !== undefined && (
                             <div className="flex justify-between">
-                              <span className="text-sm text-gray-600">Price:</span>
-                              <span className="font-semibold">
+                              <span>Price:</span>
+                              <span>
                                 {swap.inputToken.priceUsd < 0.01 
                                   ? `$${swap.inputToken.priceUsd.toFixed(6)}` 
                                   : `$${swap.inputToken.priceUsd.toFixed(4)}`}
@@ -347,11 +341,9 @@ export default function WhaleFilterPage() {
                             </div>
                           )}
                           
-                          <div className="mt-3">
+                          <div>
                             <button
                               onClick={() => copyToClipboard(swap.inputToken?.mint || '', 'Contract Address')}
-                              className="text-xs bg-red-100 hover:bg-red-200 px-2 py-1 rounded font-mono cursor-pointer"
-                              title="Click to copy contract address"
                             >
                               CA: {swap.inputToken.mint?.slice(0, 8)}...{swap.inputToken.mint?.slice(-4)}
                             </button>
@@ -360,40 +352,39 @@ export default function WhaleFilterPage() {
                       </div>
                     )}
 
-                    {/* Output Token (BOUGHT) */}
                     {swap.outputToken && (
-                      <div className="bg-green-50 p-4 rounded-lg border-l-4 border-green-500">
-                        <div className="flex justify-between items-center mb-3">
-                          <div className="text-lg font-bold text-green-700">🟢 BOUGHT</div>
-                          <div className="text-sm font-medium text-green-600">
+                      <div>
+                        <div className="flex justify-between">
+                          <div>BOUGHT</div>
+                          <div>
                             {swap.outputToken.amount?.toLocaleString()} {swap.outputToken.symbol}
                           </div>
                         </div>
                         
-                        <div className="space-y-2">
+                        <div>
                           <div className="flex justify-between">
-                            <span className="text-sm text-gray-600">Token:</span>
-                            <span className="font-semibold">{swap.outputToken.symbol || 'Unknown'}</span>
+                            <span>Token:</span>
+                            <span>{swap.outputToken.symbol || 'Unknown'}</span>
                           </div>
                           
                           {swap.outputToken.marketCap && (
                             <div className="flex justify-between">
-                              <span className="text-sm text-gray-600">Market Cap:</span>
-                              <span className="font-semibold">{formatMarketCap(swap.outputToken.marketCap)}</span>
+                              <span>Market Cap:</span>
+                              <span>{formatMarketCap(swap.outputToken.marketCap)}</span>
                             </div>
                           )}
                           
                           {swap.outputToken.pairCreatedAt && (
                             <div className="flex justify-between">
-                              <span className="text-sm text-gray-600">Pair Age:</span>
-                              <span className="font-semibold">{formatTimeAgo(swap.outputToken.pairCreatedAt)}</span>
+                              <span>Pair Age:</span>
+                              <span>{formatTimeAgo(swap.outputToken.pairCreatedAt)}</span>
                             </div>
                           )}
                           
                           {swap.outputToken.priceUsd !== undefined && (
                             <div className="flex justify-between">
-                              <span className="text-sm text-gray-600">Price:</span>
-                              <span className="font-semibold">
+                              <span>Price:</span>
+                              <span>
                                 {swap.outputToken.priceUsd < 0.01 
                                   ? `$${swap.outputToken.priceUsd.toFixed(6)}` 
                                   : `$${swap.outputToken.priceUsd.toFixed(4)}`}
@@ -401,11 +392,9 @@ export default function WhaleFilterPage() {
                             </div>
                           )}
                           
-                          <div className="mt-3">
+                          <div>
                             <button
                               onClick={() => copyToClipboard(swap.outputToken?.mint || '', 'Contract Address')}
-                              className="text-xs bg-green-100 hover:bg-green-200 px-2 py-1 rounded font-mono cursor-pointer"
-                              title="Click to copy contract address"
                             >
                               CA: {swap.outputToken.mint?.slice(0, 8)}...{swap.outputToken.mint?.slice(-4)}
                             </button>
@@ -415,26 +404,21 @@ export default function WhaleFilterPage() {
                     )}
                   </div>
 
-                  {/* Transaction Details */}
-                  <div className="border-t pt-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+                  <div>
+                    <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <span className="text-sm text-gray-600">Signature:</span>
+                        <span>Signature:</span>
                         <button
                           onClick={() => copyToClipboard(swap.signature, 'Transaction Signature')}
-                          className="ml-2 text-xs bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded font-mono cursor-pointer"
-                          title="Click to copy signature"
                         >
                           {swap.signature.slice(0, 12)}...{swap.signature.slice(-4)}
                         </button>
                       </div>
                       
                       <div>
-                        <span className="text-sm text-gray-600">Whale:</span>
+                        <span>Whale:</span>
                         <button
                           onClick={() => copyToClipboard(swap.feePayer, 'Whale Address')}
-                          className="ml-2 text-xs bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded font-mono cursor-pointer"
-                          title="Click to copy whale address"
                         >
                           {swap.feePayer.slice(0, 8)}...{swap.feePayer.slice(-4)}
                         </button>
@@ -442,7 +426,7 @@ export default function WhaleFilterPage() {
                     </div>
                     
                     {swap.description && (
-                      <div className="text-sm text-gray-700 bg-gray-50 p-3 rounded">
+                      <div>
                         <strong>Description:</strong> {swap.description}
                       </div>
                     )}
@@ -451,7 +435,7 @@ export default function WhaleFilterPage() {
               ))}
             </div>
           ) : (
-            <div className="text-center py-8 text-gray-500">
+            <div>
               <p>No whale transactions found for tokens with:</p>
               <p>• Pair created: {timeFilter.replace('<', 'Less than ').replace('>', 'More than ').replace('H', ' hour').replace('D', ' day').replace('W', ' week')} ago</p>
               <p>• Market cap: {marketCapFilter.replace('<', 'Less than $').replace('>', 'More than $').replace('k', 'K').replace('mil', 'M')}</p>

@@ -28,17 +28,17 @@ export default function Home() {
   }, [])
 
   return (
-    <div className="min-h-screen p-8">
-      <h1 className="text-3xl font-bold mb-8">Whale Swaps Data</h1>
+    <div className="max-w-7xl p-8">
+      <h1>Whale Swaps Data</h1>
       
       {loading && <p>Loading...</p>}
-      {error && <p className="text-red-500">Error: {error}</p>}
+      {error && <p>Error: {error}</p>}
       
       {!loading && !error && (
         <div>
-          <p className="mb-4">Total swaps: {swaps.length}</p>
-          <div className="space-y-4 max-h-screen overflow-y-auto">
-            <pre className="bg-gray-100 p-4 rounded overflow-x-auto text-xs">
+          <p>Total swaps: {swaps.length}</p>
+          <div className="max-h-screen overflow-y-auto">
+            <pre>
               {JSON.stringify(swaps, null, 2)}
             </pre>
           </div>
