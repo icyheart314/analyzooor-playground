@@ -2,9 +2,11 @@
 export async function GET() {
   try {
     // Call our data collection endpoint
-    const baseUrl = process.env.VERCEL_URL 
-      ? `https://${process.env.VERCEL_URL}` 
-      : 'http://localhost:3000'
+    const baseUrl = process.env.RAILWAY_PUBLIC_DOMAIN 
+      ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` 
+      : process.env.VERCEL_URL 
+        ? `https://${process.env.VERCEL_URL}` 
+        : 'https://analyzooor-playground-production.up.railway.app'
     
     const response = await fetch(`${baseUrl}/api/collect-data`)
     const result = await response.json()
