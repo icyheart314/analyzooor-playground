@@ -1,0 +1,121 @@
+TERMINAL COMMANDS GUIDE FOR BEGINNERS
+=====================================
+
+NAVIGATION COMMANDS:
+-------------------
+cd [folder]          - Change directory (move into a folder)
+cd ..                - Go up one folder level
+cd /                 - Go to root directory
+cd ~                 - Go to home directory
+pwd                  - Print current directory path
+ls                   - List files and folders (Mac/Linux)
+dir                  - List files and folders (Windows)
+ls -la               - List all files with details (Mac/Linux)
+
+FILE OPERATIONS:
+---------------
+mkdir [name]         - Create new folder
+touch [filename]     - Create new empty file (Mac/Linux)
+echo. > [filename]   - Create new empty file (Windows)
+cp [file] [dest]     - Copy file (Mac/Linux)
+copy [file] [dest]   - Copy file (Windows)
+mv [file] [dest]     - Move/rename file (Mac/Linux)
+move [file] [dest]   - Move file (Windows)
+rm [file]            - Delete file (Mac/Linux)
+del [file]           - Delete file (Windows)
+rm -rf [folder]      - Delete folder and contents (Mac/Linux)
+rmdir /s [folder]    - Delete folder and contents (Windows)
+
+FILE VIEWING:
+------------
+cat [file]           - Show file contents (Mac/Linux)
+type [file]          - Show file contents (Windows)
+head [file]          - Show first 10 lines
+tail [file]          - Show last 10 lines
+less [file]          - View file page by page (Mac/Linux)
+more [file]          - View file page by page (Windows)
+
+DEVELOPMENT COMMANDS:
+--------------------
+npm install          - Install all project dependencies
+npm run dev          - Start development server
+npm run build        - Build project for production
+npm start            - Start production server
+npm run lint         - Run code linting/checking
+git status           - Check git repository status
+git add .            - Add all changes to git staging
+git commit -m "msg"  - Commit changes with message
+git push             - Push changes to remote repository
+git pull             - Pull latest changes from remote
+
+PROCESS MANAGEMENT:
+------------------
+Ctrl + C             - Stop/cancel current command
+Ctrl + Z             - Pause current process
+ps aux               - List running processes (Mac/Linux)
+tasklist             - List running processes (Windows)
+kill [process_id]    - Stop process (Mac/Linux)
+taskkill /PID [id]   - Stop process (Windows)
+
+SEARCH & FIND:
+-------------
+find . -name "*.js"  - Find all .js files (Mac/Linux)
+dir *.js /s          - Find all .js files (Windows)
+grep "text" [file]   - Search for text in file (Mac/Linux)
+findstr "text" [file] - Search for text in file (Windows)
+
+NETWORK & SERVER:
+----------------
+ping [website]       - Test connection to website
+curl [url]           - Fetch data from URL (Mac/Linux)
+netstat -an          - Show network connections
+lsof -i :3000        - See what's using port 3000 (Mac/Linux)
+netstat -ano | findstr :3000 - See what's using port 3000 (Windows)
+
+USEFUL SHORTCUTS:
+----------------
+Tab                  - Auto-complete file/folder names
+Up Arrow            - Previous command in history
+Down Arrow          - Next command in history
+Ctrl + A            - Move cursor to start of line
+Ctrl + E            - Move cursor to end of line
+Ctrl + U            - Clear line
+Ctrl + L            - Clear screen (Mac/Linux)
+cls                 - Clear screen (Windows)
+clear               - Clear screen (Mac/Linux)
+
+COMMON PATTERNS:
+---------------
+[command] --help     - Get help for a command
+[command] -v         - Get version of installed tool
+[command] &          - Run command in background (Mac/Linux)
+
+EXAMPLES:
+--------
+cd my-project               - Enter "my-project" folder
+ls -la                      - List all files with details
+npm install                 - Install project dependencies
+npm run dev                 - Start development server
+git add .                   - Stage all changes
+git commit -m "fix bug"     - Commit with message
+git push                    - Push to remote repository
+mkdir new-folder            - Create new folder
+cp file.txt backup.txt      - Copy file
+rm old-file.txt             - Delete file
+
+TIPS:
+-----
+- Use quotes around file names with spaces: "my file.txt"
+- Be careful with delete commands (rm, del) - they're permanent
+- Use Tab completion to avoid typos
+- Check what directory you're in before running commands
+- Start commands with ./ if they're in current directory
+- Use Ctrl+C if a command is stuck or taking too long
+
+TROUBLESHOOTING:
+---------------
+- If command not found: check if software is installed
+- If permission denied: you may need admin/sudo access
+- If port in use: find and stop the process using that port
+- If npm errors: try deleting node_modules and running npm install
+- If git errors: check your repository status with git status
