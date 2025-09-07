@@ -237,12 +237,10 @@ export default function TokenInflowsPage() {
       }
     })
     
-    // Get unique tokens only (limit to top 40 by activity to ensure we get enough inflows and outflows)
+    // Get all unique tokens (no artificial limit)
     const tokenEntries = Object.entries(tokenFlows)
-      .sort(([,a], [,b]) => b.swapCount - a.swapCount)
-      .slice(0, 40)
     
-    console.log(`🔍 Found ${Object.keys(tokenFlows).length} unique tokens, processing top ${tokenEntries.length}`)
+    console.log(`🔍 Found ${Object.keys(tokenFlows).length} unique tokens, processing all of them`)
     
     // Process prices in parallel with limited concurrency
     const BATCH_SIZE = 3

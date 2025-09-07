@@ -28,6 +28,7 @@ export async function GET(request: Request) {
       .select('swap_id, timestamp, fee_payer, source, signature, description, whale_asset, whale_symbol, input_token_mint, input_token_amount, input_token_symbol, output_token_mint, output_token_amount, output_token_symbol')
       .gte('timestamp', timeAgo)
       .order('timestamp', { ascending: false })
+      .limit(1000)
     
     if (error) {
       return Response.json({ 
