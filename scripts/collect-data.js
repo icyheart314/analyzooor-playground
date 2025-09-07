@@ -13,24 +13,55 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function collectData() {
   try {
-    console.log('🔍 Fetching latest swaps...');
+    // Get the most recent timestamp from database for deduplication
+    const { data: lastRecord } = await supabase
+      .from('swaps')
+      .select('timestamp')
+      .order('timestamp', { ascending: false })
+      .limit(1);
+      
+    const lastTimestamp = lastRecord?.[0]?.timestamp || 0;
     
-    // Fetch latest swaps from the API
-    const response = await fetch(`${apiUrl}/api/simple-swaps`);
+    let allNewSwaps = [];
+    const numberOfCalls = 3;
+    const delayBetweenCalls = 20000; // 20 seconds
     
-    if (!response.ok) {
-      throw new Error(`API request failed: ${response.status}`);
+    // Make multiple API calls to capture more data
+    for (let callIndex = 1; callIndex <= numberOfCalls; callIndex++) {
+      try {
+        const response = await fetch(`${apiUrl}/api/simple-swaps`);
+        
+        if (!response.ok) {
+          throw new Error(`API request failed: ${response.status}`);
+        }
+        
+        const swaps = await response.json();
+        
+        // Filter for new swaps not seen before
+        const newSwaps = swaps.filter(swap => 
+          swap.timestamp > lastTimestamp && 
+          !allNewSwaps.some(existing => existing.id === swap.id)
+        );
+        
+        allNewSwaps.push(...newSwaps);
+        
+        // Wait before next call (except for the last call)
+        if (callIndex < numberOfCalls) {
+          await new Promise(resolve => setTimeout(resolve, delayBetweenCalls));
+        }
+        
+      } catch (callError) {
+        console.error(`API call ${callIndex} failed:`, callError);
+        continue; // Continue with next call even if one fails
+      }
     }
-    
-    const swaps = await response.json();
-    console.log(`📥 Fetched ${swaps.length} swaps`);
     
     let insertedCount = 0;
     let skippedCount = 0;
     let errorCount = 0;
     
-    // Insert each swap into database
-    for (const swap of swaps) {
+    // Insert each new swap into database
+    for (const swap of allNewSwaps) {
       try {
         const { data, error } = await supabase
           .from('swaps')
