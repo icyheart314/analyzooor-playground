@@ -7,7 +7,7 @@ export default function Home() {
         
         <div className="flex flex-col gap-4 mt-8">
           <a href="/token-flows">
-            <button>Token Flow Rankings</button>
+            <button className="underline">Token Flow Rankings</button>
           </a>
         </div>
       </div>

@@ -60,6 +60,7 @@ export default function TokenInflowsPage() {
   const [inflowSortDesc, setInflowSortDesc] = useState(true)
   const [outflowSortBy, setOutflowSortBy] = useState<'swaps' | 'uniqueWhales' | 'netInflow' | 'netInflowUSD' | 'price' | 'marketCap' | 'priceChange24h'>('netInflowUSD')
   const [outflowSortDesc, setOutflowSortDesc] = useState(true)
+  const [topCount, setTopCount] = useState(10)
   
 
   // Load saved period after client-side hydration
@@ -375,8 +376,8 @@ export default function TokenInflowsPage() {
     
     console.log(`Total unique tokens processed: ${tokenEntries.length}`)
     
-    // Dynamic batch size based on token count
-    const BATCH_SIZE = tokenEntries.length > 100 ? 4 : tokenEntries.length > 50 ? 3 : 2
+    // Aggressive batch size - 5x bigger for maximum speed
+    const BATCH_SIZE = tokenEntries.length > 100 ? 20 : tokenEntries.length > 50 ? 15 : 10
     const inflowArray = []
     
     // Sort by volume first to prioritize important tokens
@@ -415,9 +416,9 @@ export default function TokenInflowsPage() {
       // Update progress
       setProgress(i + batch.length)
       
-      // Dynamic delay based on token count - faster for large datasets
+      // Aggressive delays - 5x shorter for maximum speed
       if (i + BATCH_SIZE < sortedTokenEntries.length) {
-        const delay = tokenEntries.length > 100 ? 500 : tokenEntries.length > 50 ? 750 : 1000
+        const delay = tokenEntries.length > 100 ? 100 : tokenEntries.length > 50 ? 150 : 200
         await new Promise(resolve => setTimeout(resolve, delay))
       }
     }
@@ -474,8 +475,8 @@ export default function TokenInflowsPage() {
       if (inflowSortBy === 'marketCap') return multiplier * (b.marketCap - a.marketCap)
       if (inflowSortBy === 'priceChange24h') return multiplier * (b.priceChange24h - a.priceChange24h)
       return 0
-    }).slice(0, 10) // Take top 10 based on current sort
-  }, [topInflows, inflowSortBy, inflowSortDesc])
+    }).slice(0, topCount) // Take top N based on current sort
+  }, [topInflows, inflowSortBy, inflowSortDesc, topCount])
 
   const sortedOutflows = useMemo(() => {
     return [...topOutflows].sort((a, b) => {
@@ -488,8 +489,8 @@ export default function TokenInflowsPage() {
       if (outflowSortBy === 'marketCap') return multiplier * (b.marketCap - a.marketCap)
       if (outflowSortBy === 'priceChange24h') return multiplier * (b.priceChange24h - a.priceChange24h)
       return 0
-    }).slice(0, 10) // Take top 10 based on current sort
-  }, [topOutflows, outflowSortBy, outflowSortDesc])
+    }).slice(0, topCount) // Take top N based on current sort
+  }, [topOutflows, outflowSortBy, outflowSortDesc, topCount])
 
   useEffect(() => {
     // Only fetch data after client-side hydration is complete
@@ -589,6 +590,24 @@ export default function TokenInflowsPage() {
           ))}
         </div>
       </div>
+
+      <div>
+        <h3>Show Results:</h3>
+        <div>
+          {[10, 15, 20].map(count => (
+            <label key={count}>
+              <input
+                type="radio"
+                name="topcount"
+                value={count}
+                checked={topCount === count}
+                onChange={(e) => setTopCount(parseInt(e.target.value))}
+              />
+              Top {count}
+            </label>
+          ))}
+        </div>
+      </div>
       
       {loading && (
         <div>
@@ -616,7 +635,7 @@ export default function TokenInflowsPage() {
           
           <div>
           <div>
-            <h4>Top 10 Token Inflows (Most Bought)</h4>
+            <h4>Top {topCount} Token Inflows (Most Bought)</h4>
             {sortedInflows.length > 0 ? (
               <table style={{ border: '1px solid #ccc', borderCollapse: 'collapse', width: '100%', tableLayout: 'fixed' }}>
                 <thead>
@@ -679,7 +698,7 @@ export default function TokenInflowsPage() {
           </div>
 
           <div>
-            <h4>Top 10 Token Outflows (Most Sold)</h4>
+            <h4>Top {topCount} Token Outflows (Most Sold)</h4>
             {sortedOutflows.length > 0 ? (
               <table style={{ border: '1px solid #ccc', borderCollapse: 'collapse', width: '100%', tableLayout: 'fixed' }}>
                 <thead>

@@ -25,7 +25,7 @@ export async function GET(request: Request) {
     
     const { data: swaps, error } = await supabase
       .from('swaps')
-      .select('swap_id, timestamp, fee_payer, source, signature, description, whale_asset, whale_symbol, input_token_mint, input_token_amount, input_token_symbol, output_token_mint, output_token_amount, output_token_symbol')
+      .select('fee_payer, input_token_mint, input_token_amount, input_token_symbol, output_token_mint, output_token_amount, output_token_symbol')
       .gte('timestamp', timeAgo)
       .order('timestamp', { ascending: false })
     
@@ -39,14 +39,7 @@ export async function GET(request: Request) {
     
     // Transform data back to the original format
     const formattedSwaps = swaps.map(swap => ({
-      id: swap.swap_id,
-      timestamp: swap.timestamp,
       feePayer: swap.fee_payer,
-      source: swap.source,
-      signature: swap.signature,
-      description: swap.description,
-      whaleAsset: swap.whale_asset,
-      whaleSymbol: swap.whale_symbol,
       inputToken: swap.input_token_mint ? {
         mint: swap.input_token_mint,
         amount: parseFloat(swap.input_token_amount) || 0,
