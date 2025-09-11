@@ -61,7 +61,6 @@ export default function TokenInflowsPage() {
   const [outflowSortBy, setOutflowSortBy] = useState<'swaps' | 'uniqueWhales' | 'netInflow' | 'netInflowUSD' | 'price' | 'marketCap' | 'priceChange24h'>('netInflowUSD')
   const [outflowSortDesc, setOutflowSortDesc] = useState(true)
   
-  const intervalRef = useRef<NodeJS.Timeout | null>(null)
 
   // Load saved period after client-side hydration
   useEffect(() => {
@@ -497,33 +496,8 @@ export default function TokenInflowsPage() {
     if (!isClient) return
     
     fetchSwaps()
-    
-    // Clear any existing interval
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current)
-    }
-    
-    // Set up auto-refresh every 60 seconds (increased from 30s to reduce load)
-    intervalRef.current = setInterval(() => {
-      fetchSwaps(true)
-    }, 60000)
-    
-    // Cleanup interval on component unmount
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current)
-      }
-    }
   }, [selectedPeriod, fetchSwaps, isClient])
 
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current)
-      }
-    }
-  }, [])
 
   const timeOptions = ['10M', '30M', '1H', '2H', '4H', '12H', '1D']
 
