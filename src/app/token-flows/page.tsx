@@ -42,7 +42,7 @@ interface SwapData {
 
 // Token data cache with 5-minute expiry
 const priceCache = new Map<string, { price: number, marketCap: number, priceChange24h: number, timestamp: number }>()
-const CACHE_DURATION = 5 * 60 * 1000 // 5 minutes
+const CACHE_DURATION = 10 * 60 * 1000 // 10 minutes - longer cache to avoid rate limits
 
 export default function TokenInflowsPage() {
   const [swaps, setSwaps] = useState<SwapData[]>([])
@@ -51,7 +51,10 @@ export default function TokenInflowsPage() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [progress, setProgress] = useState(0)
+  const [totalTokens, setTotalTokens] = useState(0)
   const [selectedPeriod, setSelectedPeriod] = useState('1H')
+  const [isClient, setIsClient] = useState(false)
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
   const [inflowSortBy, setInflowSortBy] = useState<'swaps' | 'uniqueWhales' | 'netInflow' | 'netInflowUSD' | 'price' | 'marketCap' | 'priceChange24h'>('netInflowUSD')
   const [inflowSortDesc, setInflowSortDesc] = useState(true)
@@ -60,78 +63,21 @@ export default function TokenInflowsPage() {
   
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
 
-  const getCoinGeckoData = async (symbol: string): Promise<{ price: number, marketCap: number, priceChange24h: number } | null> => {
-    // CoinGecko IDs for major tokens
-    const geckoIds: { [key: string]: string } = {
-      'SOL': 'solana',
-      'USDC': 'usd-coin', 
-      'USDT': 'tether',
-      'BTC': 'bitcoin',
-      'ETH': 'ethereum'
+  // Load saved period after client-side hydration
+  useEffect(() => {
+    setIsClient(true)
+    const savedPeriod = localStorage.getItem('selectedPeriod')
+    if (savedPeriod) {
+      setSelectedPeriod(savedPeriod)
     }
-    
-    const geckoId = geckoIds[symbol.toUpperCase()]
-    if (!geckoId) return null
-    
+  }, [])
+
+
+
+  const getDexScreenerData = async (mint: string): Promise<{ price: number, marketCap: number, priceChange24h: number }> => {
     try {
       const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 3000)
-      
-      const response = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${geckoId}&vs_currencies=usd&include_market_cap=true&include_24hr_change=true`, {
-        signal: controller.signal
-      })
-      
-      clearTimeout(timeoutId)
-      
-      if (!response.ok) return null
-      
-      const data = await response.json()
-      const coinData = data[geckoId]
-      
-      if (coinData) {
-        let price = coinData.usd || 0
-        let marketCap = coinData.usd_market_cap || 0
-        let priceChange24h = coinData.usd_24h_change || 0
-        
-        // For SOL, calculate market cap using your provided circulating supply if needed
-        if (symbol.toUpperCase() === 'SOL' && price > 0 && !marketCap) {
-          marketCap = price * 541.2 * 1000000 // 541.2M circulating supply
-        }
-        
-        return {
-          price,
-          marketCap,
-          priceChange24h
-        }
-      }
-      
-      return null
-    } catch (error) {
-      return null
-    }
-  }
-
-  const getTokenData = async (mint: string, symbol: string): Promise<{ price: number, marketCap: number, priceChange24h: number }> => {
-    // Check cache first
-    const cached = priceCache.get(mint)
-    if (cached && (Date.now() - cached.timestamp) < CACHE_DURATION) {
-      return { price: cached.price, marketCap: cached.marketCap || 0, priceChange24h: cached.priceChange24h || 0 }
-    }
-
-    // Static fallback data (will be calculated dynamically for SOL)
-    const fallbackMap: { [key: string]: { price: number, marketCap: number, priceChange24h: number } } = {
-      'USDC': { price: 1, marketCap: 50000000000, priceChange24h: 0 },
-      'USDT': { price: 1, marketCap: 100000000000, priceChange24h: 0 },
-      'EURC': { price: 1.1, marketCap: 1000000000, priceChange24h: 0 },
-      'SOL': { price: 0, marketCap: 0, priceChange24h: 0 }, // Will be calculated dynamically
-    }
-
-    const fallbackData = fallbackMap[symbol.toUpperCase()] || { price: 0, marketCap: 0, priceChange24h: 0 }
-    
-    try {
-      // Use AbortController for timeout
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 3000) // 3 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 5000) // Increased timeout
       
       const response = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${mint}`, {
         signal: controller.signal
@@ -139,45 +85,225 @@ export default function TokenInflowsPage() {
       
       clearTimeout(timeoutId)
       
-      if (!response.ok) {
-        priceCache.set(mint, { ...fallbackData, timestamp: Date.now() })
-        return fallbackData
-      }
+      if (!response.ok) return { price: 0, marketCap: 0, priceChange24h: 0 }
       
       const data = await response.json()
       
       if (data.pairs && data.pairs.length > 0) {
         const pair = data.pairs[0]
-        let price = parseFloat(pair.priceUsd) || fallbackData.price
-        let marketCap = pair.fdv || pair.marketCap || 0
-        let priceChange24h = parseFloat(pair.priceChange?.h24) || 0
-        
-        // If DexScreener doesn't have market cap, try CoinGecko for major tokens
-        if (!marketCap && ['SOL', 'USDC', 'USDT', 'BTC', 'ETH'].includes(symbol.toUpperCase())) {
-          const geckoData = await getCoinGeckoData(symbol)
-          if (geckoData) {
-            price = geckoData.price || price
-            marketCap = geckoData.marketCap || (symbol.toUpperCase() === 'SOL' && price > 0 ? price * 541.2 * 1000000 : fallbackData.marketCap)
-            priceChange24h = geckoData.priceChange24h || priceChange24h
-          } else if (symbol.toUpperCase() === 'SOL' && price > 0) {
-            // Calculate SOL market cap using your provided circulating supply
-            marketCap = price * 541.2 * 1000000 // 541.2M circulating supply
-          } else {
-            marketCap = fallbackData.marketCap
-          }
+        return {
+          price: parseFloat(pair.priceUsd) || 0,
+          marketCap: pair.fdv || pair.marketCap || 0,
+          priceChange24h: parseFloat(pair.priceChange?.h24) || 0
         }
-        
-        const result = { price, marketCap, priceChange24h }
-        priceCache.set(mint, { ...result, timestamp: Date.now() })
-        return result
       }
       
-      priceCache.set(mint, { ...fallbackData, timestamp: Date.now() })
-      return fallbackData
+      return { price: 0, marketCap: 0, priceChange24h: 0 }
+    } catch (error) {
+      return { price: 0, marketCap: 0, priceChange24h: 0 }
+    }
+  }
+
+  const getCoinGeckoData = async (mint: string, symbol: string): Promise<{ price: number, marketCap: number, priceChange24h: number }> => {
+    try {
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 5000) // Increased timeout
+      
+      // Try contract address first
+      let response = await fetch(`https://api.coingecko.com/api/v3/coins/solana/contract/${mint}`, {
+        signal: controller.signal
+      })
+      
+      clearTimeout(timeoutId)
+      
+      if (!response.ok) {
+        // Try by symbol for major tokens
+        const geckoIds: { [key: string]: string } = {
+          'SOL': 'solana',
+          'USDC': 'usd-coin', 
+          'USDT': 'tether',
+          'BTC': 'bitcoin',
+          'ETH': 'ethereum'
+        }
+        
+        const geckoId = geckoIds[symbol.toUpperCase()]
+        if (geckoId) {
+          const controller2 = new AbortController()
+          const timeoutId2 = setTimeout(() => controller2.abort(), 5000)
+          
+          response = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${geckoId}&vs_currencies=usd&include_market_cap=true&include_24hr_change=true`, {
+            signal: controller2.signal
+          })
+          
+          clearTimeout(timeoutId2)
+          
+          if (response.ok) {
+            const data = await response.json()
+            const coinData = data[geckoId]
+            if (coinData) {
+              return {
+                price: coinData.usd || 0,
+                marketCap: coinData.usd_market_cap || 0,
+                priceChange24h: coinData.usd_24h_change || 0
+              }
+            }
+          }
+        }
+        return { price: 0, marketCap: 0, priceChange24h: 0 }
+      }
+      
+      const data = await response.json()
+      return {
+        price: data.market_data?.current_price?.usd || 0,
+        marketCap: data.market_data?.market_cap?.usd || 0,
+        priceChange24h: data.market_data?.price_change_percentage_24h || 0
+      }
       
     } catch (error) {
-      priceCache.set(mint, { ...fallbackData, timestamp: Date.now() })
-      return fallbackData
+      return { price: 0, marketCap: 0, priceChange24h: 0 }
+    }
+  }
+
+
+  const getTokenSupply = async (mint: string, symbol: string): Promise<number | null> => {
+    // Use hardcoded supplies only - avoid problematic API calls
+    const knownSupplies: { [key: string]: number } = {
+      'SOL': 542_300_000, // 542.3M SOL circulating supply
+      'USDC': 72_400_000_000, // 72.4B USDC circulating supply
+      'USDT': 169_100_000_000, // 169.1B USDT circulating supply
+      'GUN': 1_121_166_667,  // 1.121B circulating supply
+      'CPOOL': 808_900_000,  // 808.9M circulating supply
+    }
+    
+    // Check by symbol first
+    if (knownSupplies[symbol]) {
+      return knownSupplies[symbol]
+    }
+    
+    // Check by mint address patterns
+    if (mint.endsWith('pump') || mint.endsWith('bonk')) {
+      return 1_000_000_000  // 1B supply for pump.fun/bonk tokens
+    }
+    
+    return null // Unknown supply, use API
+  }
+
+  const getTokenSupplySync = (mint: string, symbol: string): number | null => {
+    // Known token supplies for accurate market cap calculation
+    const knownSupplies: { [key: string]: number } = {
+      'SOL': 542_300_000, // 542.3M SOL circulating supply
+      'USDC': 72_400_000_000, // 72.4B USDC circulating supply
+      'USDT': 169_100_000_000, // 169.1B USDT circulating supply
+      'GUN': 1_121_166_667,  // 1.121B circulating supply
+      'CPOOL': 808_900_000,  // 808.9M circulating supply
+    }
+    
+    // Check by symbol first
+    if (knownSupplies[symbol]) {
+      return knownSupplies[symbol]
+    }
+    
+    // Check by mint address patterns
+    if (mint.endsWith('pump') || mint.endsWith('bonk')) {
+      return 1_000_000_000  // 1B supply for pump.fun/bonk tokens
+    }
+    
+    return null // Unknown supply, use API
+  }
+
+  const getTokenData = async (mint: string, symbol: string): Promise<{ price: number, marketCap: number, priceChange24h: number }> => {
+    // Force cache clear for problematic tokens (removed GUN since CoinGecko works)
+    const problematicTokens: string[] = []  // All tokens now work with knownSupplies or APIs
+    if (problematicTokens.includes(symbol)) {
+      priceCache.delete(mint)
+    }
+    
+    // Check cache first
+    const cached = priceCache.get(mint)
+    if (cached && (Date.now() - cached.timestamp) < CACHE_DURATION) {
+      return { price: cached.price, marketCap: cached.marketCap || 0, priceChange24h: cached.priceChange24h || 0 }
+    }
+
+    // Fast path for known supply tokens - calculate market cap directly
+    const knownSupply = await getTokenSupply(mint, symbol)
+    if (knownSupply) {
+      
+      // Get price from DexScreener (most reliable API)
+      let price = 0
+      let priceChange24h = 0
+      
+      const dexData = await getDexScreenerData(mint)
+      if (dexData.price > 0) {
+        price = dexData.price
+        priceChange24h = dexData.priceChange24h
+      }
+      
+      if (price > 0) {
+        const supplyBasedResult = {
+          price: price,
+          marketCap: price * knownSupply, // Use known supply instead of API
+          priceChange24h: priceChange24h
+        }
+        
+        priceCache.set(mint, { ...supplyBasedResult, timestamp: Date.now() })
+        return supplyBasedResult
+      }
+    }
+
+    // Use only working APIs: DexScreener (most reliable) > CoinGecko (if token exists)
+    const apis = [
+      { name: 'DexScreener', func: () => getDexScreenerData(mint) },        // Most reliable API
+      { name: 'CoinGecko', func: () => getCoinGeckoData(mint, symbol) },     // Backup for market cap
+    ]
+    
+    let finalResult = { price: 0, marketCap: 0, priceChange24h: 0 }
+    
+    // Try all APIs in parallel and merge the best data
+    const apiPromises = apis.map(async api => {
+      try {
+        const data = await api.func()
+        return { api: api.name, data, success: true }
+      } catch (error) {
+        return { api: api.name, data: { price: 0, marketCap: 0, priceChange24h: 0 }, success: false }
+      }
+    })
+    
+    try {
+      const results = await Promise.all(apiPromises)
+      
+      // Collect all valid data from successful API calls
+      const allPrices = []
+      const allMarketCaps = []
+      const allPriceChanges = []
+      
+      
+      for (const result of results) {
+        if (result.success && result.data) {
+          if (result.data.price > 0) allPrices.push(result.data.price)
+          if (result.data.marketCap > 0) allMarketCaps.push(result.data.marketCap)
+          if (result.data.priceChange24h !== 0) allPriceChanges.push(result.data.priceChange24h)
+        }
+      }
+      
+      // Use the first valid value from each array (APIs are in priority order)
+      finalResult = {
+        price: allPrices.length > 0 ? allPrices[0] : 0,
+        marketCap: allMarketCaps.length > 0 ? allMarketCaps[0] : 0,
+        priceChange24h: allPriceChanges.length > 0 ? allPriceChanges[0] : 0
+      }
+      
+      // Cache the merged result
+      priceCache.set(mint, { ...finalResult, timestamp: Date.now() })
+      return finalResult
+      
+    } catch (error) {
+      const result = { 
+        price: 0, 
+        marketCap: 0, 
+        priceChange24h: 0 
+      }
+      priceCache.set(mint, { ...result, timestamp: Date.now() })
+      return result
     }
   }
 
@@ -191,8 +317,6 @@ export default function TokenInflowsPage() {
       case '4H': return now - (4 * 60 * 60 * 1000)
       case '12H': return now - (12 * 60 * 60 * 1000)
       case '1D': return now - (24 * 60 * 60 * 1000)
-      case '3D': return now - (3 * 24 * 60 * 60 * 1000)
-      case '1W': return now - (7 * 24 * 60 * 60 * 1000)
       default: return now - (60 * 60 * 1000)
     }
   }
@@ -200,8 +324,6 @@ export default function TokenInflowsPage() {
   const calculateNetInflows = async (swapData: SwapData[], period: string) => {
     // Data is already filtered by the API, no need to filter again
     const recentSwaps = swapData
-    
-    console.log(`📊 Processing ${period}: ${recentSwaps.length} swaps received from API`)
     
     
     const tokenFlows: { [mint: string]: { symbol: string, netInflow: number, inflow: number, outflow: number, swapCount: number, uniqueWhales: Set<string> } } = {}
@@ -214,11 +336,17 @@ export default function TokenInflowsPage() {
         const mint = outputToken.mint
         const symbol = getTokenSymbol(mint, outputToken.metadata?.symbol)
         
+        // Convert SOL lamports to decimal if amount > 1M (likely lamports from PUMP_FUN)
+        let amount = outputToken.amount
+        if (symbol === 'SOL' && amount > 1000000) {
+          amount = amount / 1e9  // Convert lamports to SOL
+        }
+        
         if (!tokenFlows[mint]) {
           tokenFlows[mint] = { symbol, netInflow: 0, inflow: 0, outflow: 0, swapCount: 0, uniqueWhales: new Set() }
         }
-        tokenFlows[mint].inflow += outputToken.amount
-        tokenFlows[mint].netInflow += outputToken.amount
+        tokenFlows[mint].inflow += amount
+        tokenFlows[mint].netInflow += amount
         tokenFlows[mint].swapCount += 1
         tokenFlows[mint].uniqueWhales.add(swap.feePayer)
       }
@@ -227,11 +355,17 @@ export default function TokenInflowsPage() {
         const mint = inputToken.mint
         const symbol = getTokenSymbol(mint, inputToken.metadata?.symbol)
         
+        // Convert SOL lamports to decimal if amount > 1M (likely lamports from PUMP_FUN)
+        let amount = inputToken.amount
+        if (symbol === 'SOL' && amount > 1000000) {
+          amount = amount / 1e9  // Convert lamports to SOL
+        }
+        
         if (!tokenFlows[mint]) {
           tokenFlows[mint] = { symbol, netInflow: 0, inflow: 0, outflow: 0, swapCount: 0, uniqueWhales: new Set() }
         }
-        tokenFlows[mint].outflow += inputToken.amount
-        tokenFlows[mint].netInflow -= inputToken.amount
+        tokenFlows[mint].outflow += amount
+        tokenFlows[mint].netInflow -= amount
         tokenFlows[mint].swapCount += 1
         tokenFlows[mint].uniqueWhales.add(swap.feePayer)
       }
@@ -240,14 +374,23 @@ export default function TokenInflowsPage() {
     // Get all unique tokens (no artificial limit)
     const tokenEntries = Object.entries(tokenFlows)
     
-    console.log(`🔍 Found ${Object.keys(tokenFlows).length} unique tokens, processing all of them`)
+    console.log(`Total unique tokens processed: ${tokenEntries.length}`)
     
-    // Process prices in parallel with limited concurrency
-    const BATCH_SIZE = 3
+    // Dynamic batch size based on token count
+    const BATCH_SIZE = tokenEntries.length > 100 ? 4 : tokenEntries.length > 50 ? 3 : 2
     const inflowArray = []
     
-    for (let i = 0; i < tokenEntries.length; i += BATCH_SIZE) {
-      const batch = tokenEntries.slice(i, i + BATCH_SIZE)
+    // Sort by volume first to prioritize important tokens
+    const sortedTokenEntries = tokenEntries
+      .map(([mint, data]) => ([mint, data, Math.abs(data.netInflow)]))
+      .sort((a, b) => b[2] - a[2])
+    
+    // Set total tokens for progress tracking
+    setTotalTokens(sortedTokenEntries.length)
+    setProgress(0)
+    
+    for (let i = 0; i < sortedTokenEntries.length; i += BATCH_SIZE) {
+      const batch = sortedTokenEntries.slice(i, i + BATCH_SIZE)
       
       const batchResults = await Promise.all(
         batch.map(async ([mint, data]) => {
@@ -270,17 +413,19 @@ export default function TokenInflowsPage() {
       
       inflowArray.push(...batchResults)
       
-      // Delay between batches to avoid rate limiting
-      if (i + BATCH_SIZE < tokenEntries.length) {
-        await new Promise(resolve => setTimeout(resolve, 200))
+      // Update progress
+      setProgress(i + batch.length)
+      
+      // Dynamic delay based on token count - faster for large datasets
+      if (i + BATCH_SIZE < sortedTokenEntries.length) {
+        const delay = tokenEntries.length > 100 ? 500 : tokenEntries.length > 50 ? 750 : 1000
+        await new Promise(resolve => setTimeout(resolve, delay))
       }
     }
     
     // Separate inflows and outflows - don't pre-sort here, let the UI handle sorting
     const inflows = inflowArray.filter(token => token.netInflowUSD > 0)
     const outflows = inflowArray.filter(token => token.netInflowUSD < 0)
-    
-    console.log(`💰 Results: ${inflows.length} inflow tokens, ${outflows.length} outflow tokens`)
     
     return { inflows, outflows }
   }
@@ -300,6 +445,8 @@ export default function TokenInflowsPage() {
         throw new Error('Failed to fetch swaps from database')
       }
       const data = await response.json()
+      console.log(`Fetched ${data.length} swaps for period ${selectedPeriod}`)
+      
       setSwaps(data)
       
       // Calculate net inflows and outflows
@@ -346,6 +493,9 @@ export default function TokenInflowsPage() {
   }, [topOutflows, outflowSortBy, outflowSortDesc])
 
   useEffect(() => {
+    // Only fetch data after client-side hydration is complete
+    if (!isClient) return
+    
     fetchSwaps()
     
     // Clear any existing interval
@@ -364,7 +514,7 @@ export default function TokenInflowsPage() {
         clearInterval(intervalRef.current)
       }
     }
-  }, [selectedPeriod, fetchSwaps])
+  }, [selectedPeriod, fetchSwaps, isClient])
 
   // Cleanup on unmount
   useEffect(() => {
@@ -375,7 +525,7 @@ export default function TokenInflowsPage() {
     }
   }, [])
 
-  const timeOptions = ['10M', '30M', '1H', '2H', '4H', '12H', '1D', '3D', '1W']
+  const timeOptions = ['10M', '30M', '1H', '2H', '4H', '12H', '1D']
 
   const handleInflowSort = (column: 'swaps' | 'uniqueWhales' | 'netInflow' | 'netInflowUSD' | 'price' | 'marketCap' | 'priceChange24h') => {
     if (inflowSortBy === column) {
@@ -454,7 +604,11 @@ export default function TokenInflowsPage() {
                 name="timeperiod"
                 value={period}
                 checked={selectedPeriod === period}
-                onChange={(e) => setSelectedPeriod(e.target.value)}
+                onChange={(e) => {
+                  const newPeriod = e.target.value
+                  setSelectedPeriod(newPeriod)
+                  localStorage.setItem('selectedPeriod', newPeriod)
+                }}
               />
               {period}
             </label>
@@ -462,7 +616,17 @@ export default function TokenInflowsPage() {
         </div>
       </div>
       
-      {loading && <p>Loading...</p>}
+      {loading && (
+        <div>
+          <p>Loading token data...</p>
+          {totalTokens > 0 && (
+            <div>
+              <progress value={progress} max={totalTokens}></progress>
+              <p>Processing {progress} of {totalTokens} tokens ({Math.round((progress / totalTokens) * 100)}%)</p>
+            </div>
+          )}
+        </div>
+      )}
       {error && <p>Error: {error}</p>}
       
       {!loading && !error && (
@@ -508,7 +672,16 @@ export default function TokenInflowsPage() {
                 <tbody>
                   {sortedInflows.map((token, index) => (
                     <tr key={token.mint}>
-                      <td style={{ border: '1px solid #ccc', padding: '8px' }}>{token.symbol}</td>
+                      <td style={{ border: '1px solid #ccc', padding: '8px' }}>
+                        <a 
+                          href={`https://dexscreener.com/solana/${token.mint}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:text-blue-800 underline"
+                        >
+                          {token.symbol}
+                        </a>
+                      </td>
                       <td style={{ border: '1px solid #ccc', padding: '8px' }}>
                         <button onClick={() => copyToClipboard(token.mint, 'Contract Address')}>
                           {token.mint.slice(0, 8)}...{token.mint.slice(-4)}
@@ -562,7 +735,16 @@ export default function TokenInflowsPage() {
                 <tbody>
                   {sortedOutflows.map((token, index) => (
                     <tr key={token.mint}>
-                      <td style={{ border: '1px solid #ccc', padding: '8px' }}>{token.symbol}</td>
+                      <td style={{ border: '1px solid #ccc', padding: '8px' }}>
+                        <a 
+                          href={`https://dexscreener.com/solana/${token.mint}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:text-blue-800 underline"
+                        >
+                          {token.symbol}
+                        </a>
+                      </td>
                       <td style={{ border: '1px solid #ccc', padding: '8px' }}>
                         <button onClick={() => copyToClipboard(token.mint, 'Contract Address')}>
                           {token.mint.slice(0, 8)}...{token.mint.slice(-4)}
