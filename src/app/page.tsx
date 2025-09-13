@@ -9,6 +9,12 @@ export default function Home() {
           <a href="/token-flows">
             <button className="underline">Token Flow Rankings</button>
           </a>
+          <a href="/activity">
+            <button className="underline">Whale Activity (24h)</button>
+          </a>
+          <a href="https://t.me/Whaleooor_Pingooor_bot" target="_blank" rel="noopener noreferrer">
+            <button className="underline">🐋 Whaleooor Pingooor Bot</button>
+          </a>
         </div>
       </div>
     </div>

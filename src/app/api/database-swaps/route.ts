@@ -20,6 +20,8 @@ export async function GET(request: Request) {
       case '1D': timeAgo = now - (24 * 60 * 60 * 1000); break
       case '3D': timeAgo = now - (3 * 24 * 60 * 60 * 1000); break
       case '1W': timeAgo = now - (7 * 24 * 60 * 60 * 1000); break
+      case '2W': timeAgo = now - (14 * 24 * 60 * 60 * 1000); break
+      case '1MO': timeAgo = now - (30 * 24 * 60 * 60 * 1000); break
       default: timeAgo = now - (7 * 24 * 60 * 60 * 1000); break
     }
     

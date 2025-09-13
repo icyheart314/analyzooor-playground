@@ -1,0 +1,28 @@
+icy ideas
+1. top 10 whaleooor call biggest profit last 24h
+mechanism in last 24 hour whaleooor raw data, every transaction processed we get the price at buying data then the peak price after bought, (peak price after buying - buying price)/buying price = % profit, and we rank the profit to top 10. the ranking will show token tag, token ca, transaction time, buy price, peak price, profit%, market cap
+
+2. plot line chart number of swap every mins for 1 day with https://recharts.org/ (purpose is to see which time is most/less activity/ high traffic/low traffic)
+
+3. token filter
+details:
+input: Token Contract address / token tag (blank fill)    input: time last 10m/30m/1h/2h/4h/12h/1d/3d/1w/1mo (radio button)
+output: swap, unique whale, net flow, marketcap, price, price change
+least priority feature (work on first output, tested, working well then proceed next) output: chart (from tradingview or dexscreener, whats best, prefer if we could add our whale cvd indicator on the chart and have line for whale avg price)
+
+4. whale filter
+details:
+input: whale wallet address                               input: time last 10m/30m/1h/2h/4h/12h/1d/3d/1w/1mo
+output: all token net flow on the period contract address, swap, each token netflow, market cap, price, price change
+
+least priority feature: whale portfolio (solana on top, stables next, then coins ranked by holding), whale trade winrate
+
+5 whaleooor filter on telegram
+the user can do /menu then filter options will pop
+add token, add market cap under "x"$ filter, add minimum purchase filter, add blacklist token
+the bot will then filter from the api/raw-data and send to user tele when theres certain token or certain mc below intended or a purchase greater than the minimum filter. i plan to make this bot then every user can set their params on their telegram
+
+
+
+claude ideas
+we have whale swap raw data, what can we make use it for?
